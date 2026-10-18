@@ -1,0 +1,20 @@
+DIÁRIO DE BORDO – MASTERS ENGENHARIA (PWA)
+
+PUBLICAR: envie TODOS os arquivos desta pasta (mantendo as subpastas) para uma hospedagem com HTTPS
+(GitHub Pages, Netlify, Cloudflare Pages etc.). Sem HTTPS o navegador não instala o aplicativo.
+Não abra o index.html direto do arquivo: instalação e modo offline só funcionam pelo endereço HTTPS.
+
+INSTALAR
+- Android (Chrome): abra o endereço > botão "Instalar aplicativo" ou menu ⋮ > "Instalar aplicativo".
+- iPhone (Safari): Compartilhar > "Adicionar à Tela de Início".
+
+CONFERIR O ÍCONE: na tela inicial deve aparecer o "m" azul sobre fundo branco, com o nome
+"Diário Masters". Se aparecer ícone antigo, remova o app e instale de novo.
+
+ARQUIVOS
+- original/Master_s.jpeg : logo original (na verdade um SVG), preservada sem alteração.
+- logo-masters.svg : cópia idêntica, usada na abertura e no cabeçalho.
+- icons/ : ícones gerados da logo (192, 512, maskable 512, apple-touch 180, favicon 32).
+
+Excel: na primeira exportação é preciso internet (biblioteca SheetJS); depois fica em cache. CSV funciona offline.
+Os dados ficam salvos no próprio aparelho (não sincronizam entre celular e computador).
