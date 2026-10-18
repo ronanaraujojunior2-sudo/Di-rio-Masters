@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Diário de Bordo – Masters Engenharia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#394086">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Diário Masters">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root{--az:#394086;--vm:#d81313;--bg:#f4f5fa;--bd:#d6d9e8}
+*{box-sizing:border-box}body{margin:0;font:15px/1.4 Arial,Helvetica,sans-serif;background:var(--bg);color:#1c1f33;padding-bottom:env(safe-area-inset-bottom)}
+#splash{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:9;transition:opacity .4s}
+#splash img{width:min(80vw,420px)}
+header{background:#fff;border-bottom:4px solid var(--vm);padding:calc(8px + env(safe-area-inset-top)) 14px 8px;display:flex;align-items:center;gap:12px}
+header img{height:38px;max-width:60vw}header h1{font-size:15px;margin:0 0 0 auto;color:var(--az);text-align:right}
+main{max-width:1100px;margin:0 auto;padding:12px}
+section{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:12px}
+h2{margin:0 0 10px;font-size:15px;color:var(--az)}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:block;font-size:12px;color:#555;font-weight:bold}
+input,textarea,select{width:100%;font:inherit;padding:9px;border:1px solid var(--bd);border-radius:6px;margin-top:3px;background:#fff}
+.w{grid-column:1/-1}.ck{display:flex;gap:8px;align-items:center;font-size:14px;color:#1c1f33}.ck input{width:22px;height:22px;margin:0}
+button{font:inherit;font-weight:bold;border:0;border-radius:8px;padding:11px 14px;background:var(--az);color:#fff}
+button.s{background:#fff;color:var(--az);border:1px solid var(--az)}button.d{background:var(--vm)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:900px;font-size:13px}
+th{background:var(--az);color:#fff;padding:6px;text-align:left}td{border:1px solid var(--bd);padding:6px}tr.r:nth-child(even){background:#f7f8fc}
+tfoot td{font-weight:bold;background:#eceefa}#err,.err{color:var(--vm);font-weight:bold;margin-top:8px}.hint{font-size:12px;color:#555}
+.ph,#pv{display:none}#tabs{display:flex;background:#fff;border-bottom:1px solid var(--bd)}#tabs button{flex:1;background:#fff;color:#555;border-radius:0;border-bottom:3px solid transparent}#tabs button.on{color:var(--az);border-color:var(--az)}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.cd{background:#eceefa;border-radius:8px;padding:8px;font-size:12px}.cd b{display:block;font-size:15px;color:var(--az)}.pg h3{margin:4px 0;color:var(--az)}[hidden]{display:none!important}tr.r{cursor:pointer}tr.sel{background:#dfe3ff!important;outline:2px solid var(--az);outline-offset:-2px}dialog{border:1px solid var(--bd);border-radius:10px;max-width:90vw}
+@media print{body>*:not(#pv){display:none!important}#pv{display:block}.pg{page-break-after:always}.pg:last-child{page-break-after:auto}@page{size:A4 landscape;margin:8mm}body{background:#fff}#splash,.np,.bar,button{display:none!important}.ph{display:block}section{border:0;padding:0}table{min-width:0;font-size:10px}td:last-child.ac,th.ac{display:none}}
+</style></head><body>
+<div id="splash"><img src="logo-masters.svg" alt="Master's Engenharia"></div>
+<header><img src="logo-masters.svg" alt="Master's Engenharia"><h1>Controle de Utilização de Veículo</h1></header>
+<nav id="tabs" class="np"><button class="on" data-t="d">Diário</button><button data-t="a">Abastecimentos</button><button data-t="e">Exportar</button></nav>
+<main><div id="t_d">
+<section class="np"><h2>Veículo</h2><div class="bar" style="margin:0 0 10px"><label style="flex:1;min-width:200px">Veículo selecionado<select id="vsel" style="width:100%;padding:9px;margin-top:3px;font:inherit"></select></label><button class="s" id="nv" style="align-self:end">+ Novo veículo</button></div><div class="g" id="hf"></div></section>
+<section class="np"><h2 id="ft">Novo registro</h2><label id="lv" hidden style="margin-bottom:10px">Veículo deste registro<select id="f_vid" style="width:100%;padding:9px;margin-top:3px;font:inherit"></select></label><div class="g" id="rf"></div>
+<div class="ck w" style="margin-top:10px"><input type="checkbox" id="visto"><label for="visto" style="font-size:14px;color:inherit">Visto do motorista: confirmo que as informações estão corretas</label></div>
+<div id="err"></div><div class="bar"><button id="add">Salvar registro</button><button class="s" id="cancel" hidden>Cancelar edição</button></div></section>
+<section><h2>Registros</h2><p class="hint np">Toque em um registro para selecioná-lo.</p><div class="bar np" id="acts" hidden style="margin:0 0 10px"><button id="ed">Editar</button><button class="d" id="del">Excluir</button></div><div class="ph" id="ph"></div><div class="tw"><table><thead><tr><th>DATA</th><th>KM SAÍDA</th><th>KM CHEGADA</th><th>HORA SAÍDA</th><th>HORA CHEGADA</th><th>ORIGEM / DESTINO</th><th>NOME MOTORISTA</th><th>VISTO</th><th>FINALIDADE</th><th>USUÁRIO</th><th>KM RODADO</th></tr></thead><tbody id="tb"></tbody><tfoot><tr><td colspan="10" style="text-align:right">Total (KM rodado)</td><td id="tot">0</td></tr></tfoot></table></div>
+<label style="margin-top:10px">Observações<textarea id="obs" rows="3"></textarea></label>
+<div class="bar np"><button class="s" id="inst" hidden>Instalar aplicativo</button></div>
+<p class="hint np" id="ios" hidden>iPhone: toque em Compartilhar e depois em “Adicionar à Tela de Início”.</p></section>
+</div>
+<div id="t_a" hidden>
+<section class="np"><h2 id="aft">Novo abastecimento</h2><div class="g">
+<label>Veículo<select id="a_vid"></select></label><label>Data<input id="a_data" type="date"></label><label>Horário<input id="a_hora" type="time"></label>
+<label>KM do veículo (opcional)<input id="a_km" type="number" inputmode="numeric" min="0"></label><label>Posto de combustível<input id="a_posto" type="text"></label>
+<label>Combustível (opcional)<select id="a_comb"><option>Gasolina</option><option>Etanol</option><option>Diesel</option><option>GNV</option><option>Outro</option></select></label>
+<label>Valor total pago (R$)<input id="a_tot" type="number" inputmode="decimal" step="0.01" min="0"></label><label>Preço por litro (R$/L)<input id="a_prec" type="number" inputmode="decimal" step="0.001" min="0"></label>
+<label>Litros (calculado)<input id="a_lit" type="text" readonly tabindex="-1" style="background:#eceefa;font-weight:bold"></label>
+<label class="w">Viagem relacionada (opcional)<select id="a_tid"></select></label><label class="w">Observações<input id="a_obs" type="text"></label></div>
+<div class="err" id="aerr"></div><div class="bar"><button id="a_add">Salvar abastecimento</button><button class="s" id="a_cancel" hidden>Cancelar edição</button></div></section>
+<section><h2>Consulta de abastecimentos</h2><div class="g"><label>Data inicial<input id="q_ini" type="date"></label><label>Data final<input id="q_fim" type="date"></label><label>Veículo<select id="q_vid"></select></label><label>Posto<input id="q_posto" type="text" placeholder="contém…"></label>
+<label>Combustível<select id="q_comb"><option value="">Todos</option><option>Gasolina</option><option>Etanol</option><option>Diesel</option><option>GNV</option><option>Outro</option></select></label></div>
+<div class="cards" id="asum" style="margin:10px 0"></div><p class="hint">Toque em um abastecimento para ver os detalhes.</p>
+<div class="bar" id="aacts" hidden style="margin:0 0 10px"><button id="a_ed">Editar abastecimento</button><button class="d" id="a_del">Excluir abastecimento</button></div><p id="adet" class="hint"></p>
+<div class="tw"><table style="min-width:700px"><thead><tr><th>DATA</th><th>HORÁRIO</th><th>VEÍCULO / PLACA</th><th>KM</th><th>POSTO</th><th>LITROS</th><th>R$ / LITRO</th><th>TOTAL</th></tr></thead><tbody id="atb"></tbody></table></div></section></div>
+<div id="t_e" hidden><section class="np"><h2>Período da Exportação</h2><div class="g"><label>Data inicial<input id="e_ini" type="date"></label><label>Data final<input id="e_fim" type="date"></label><label>Veículo<select id="e_vid"></select></label></div>
+<div class="bar" id="atalhos"><button class="s" data-a="h">Hoje</button><button class="s" data-a="s7">Últimos 7 dias</button><button class="s" data-a="s30">Últimos 30 dias</button><button class="s" data-a="mes">Este mês</button><button class="s" data-a="ant">Mês anterior</button><button class="s" data-a="todo">Todo o período</button></div>
+<p id="e_prev" class="hint" style="font-size:14px"></p><div class="err" id="e_err"></div>
+<div class="bar"><button id="xl">Exportar Excel</button><button class="s" id="pr">Exportar PDF</button><button class="s" id="csv">Exportar CSV</button></div>
+<p class="hint">PDF: na janela de impressão, escolha “Salvar como PDF”. Excel: um arquivo por veículo.</p></section></div>
+</main><dialog id="dlg"><p id="dlgp">Deseja realmente excluir este registro? Esta ação poderá afetar o histórico de quilometragem e os relatórios exportados.</p><div class="bar"><button class="s" id="dn">Cancelar</button><button class="d" id="dy">Confirmar exclusão</button></div></dialog><div id="pv"></div>
+<script src="vendor/jszip.min.js"></script>
+<script>
+const K='masters-diario-v1',$=s=>document.querySelector(s),uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let S=JSON.parse(localStorage.getItem(K)||'null')||{};
+if(S.h){const id=uid(),h=S.h;S={veics:[{id,veiculo:h.veiculo||'',placa:h.placa||'',kmFinal:h.kmFinal||'',dIni:h.dIni||'',dFim:h.dFim||'',kmOleo:h.kmOleo||'',dOleo:h.dOleo||'',obs:S.obs||''}],ativo:id,r:(S.r||[]).map(r=>({...r,id:uid(),vid:id}))}}
+if(!S.veics){const id=uid();S={veics:[{id,veiculo:'FIAT MOBI',placa:'TYD5C39',obs:''}],ativo:id,r:[]}}
+if(!S.ab)S.ab=[];
+let sel=null,ed=null;
+const save=()=>localStorage.setItem(K,JSON.stringify(S)),V=()=>S.veics.find(v=>v.id==S.ativo)||S.veics[0];
+const RS=()=>S.r.map((r,i)=>[r,i]).filter(x=>x[0].vid==V().id).sort((a,b)=>(a[0].data+(a[0].hS||'')).localeCompare(b[0].data+(b[0].hS||''))||a[1]-b[1]).map(x=>x[0]);
+const ult=()=>{const l=RS().filter(r=>Number.isFinite(r.kmC)).at(-1);return l?l.kmC:null};
+const H=[['veiculo','Veículo','text'],['placa','Placa','text'],['kmFinal','Km Final','number'],['dIni','Data Início','date'],['dFim','Data Final','date'],['kmOleo','KM Troca Óleo','number'],['dOleo','Data Troca Óleo','date']];
+const F=[['data','Data','date'],['kmS','KM saída','number'],['kmC','KM chegada','number'],['hS','Hora saída','time'],['hC','Hora chegada','time'],['od','Origem / Destino','text','w'],['mot','Nome do motorista (legível)','text'],['fin','Finalidade','text'],['usu','Usuário','text']];
+const fd=d=>d?d.split('-').reverse().join('/'):'',km=r=>(r.kmS!==''&&r.kmC!==''&&r.kmS!=null&&r.kmC!=null)?r.kmC-r.kmS:null;
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('#hf').innerHTML=H.map(([k,l,t])=>`<label>${l}<input id="h_${k}" type="${t}" inputmode="${t=='number'?'numeric':''}"></label>`).join('');
+$('#rf').innerHTML=F.map(([k,l,t,w])=>`<label class="${w||''}">${l}<input id="f_${k}" type="${t}" ${t=='number'?'inputmode="numeric" min="0"':''}></label>`).join('');
+const vopts=()=>S.veics.map(v=>`<option value="${v.id}">${esc(v.veiculo)} – ${esc(v.placa)}</option>`).join('');
+function sv(){const k=['q_vid','e_vid','a_vid'].map(i=>$('#'+i).value);$('#vsel').innerHTML=vopts();$('#vsel').value=S.ativo;$('#f_vid').innerHTML=vopts();$('#a_vid').innerHTML=vopts();$('#q_vid').innerHTML='<option value="">Todos</option>'+vopts();$('#e_vid').innerHTML='<option value="">Todos os veículos</option>'+vopts();
+ ['q_vid','e_vid','a_vid'].forEach((i,n)=>{if(k[n]===''||(k[n]&&S.veics.some(v=>v.id==k[n])))$('#'+i).value=k[n]});tripOpts()}
+function fillH(){H.forEach(([k])=>$('#h_'+k).value=V()[k]||'');$('#obs').value=V().obs||''}
+H.forEach(([k])=>{$('#h_'+k).oninput=e=>{V()[k]=e.target.value;save();if(k=='veiculo'||k=='placa'){const x=$('#vsel').value;sv();$('#vsel').value=x}head()}});
+$('#obs').oninput=e=>{V().obs=e.target.value;save()};
+$('#vsel').onchange=e=>{S.ativo=e.target.value;save();sel=null;fillH();draw();clr()};
+$('#nv').onclick=()=>{const n=prompt('Nome / modelo do veículo:');if(!n)return;const p=prompt('Placa:');if(!p)return;const id=uid();S.veics.push({id,veiculo:n.trim(),placa:p.trim().toUpperCase(),obs:''});S.ativo=id;save();sel=null;sv();fillH();draw();clr()};
+function head(){const v=V();$('#ph').innerHTML=`<b>Veículo:</b> ${esc(v.veiculo)} &nbsp; <b>Placa:</b> ${esc(v.placa)} &nbsp; <b>Km Final:</b> ${esc(v.kmFinal)} &nbsp; <b>Período:</b> ${fd(v.dIni)} a ${fd(v.dFim)} &nbsp; <b>KM Troca Óleo:</b> ${esc(v.kmOleo)} &nbsp; <b>Data Troca Óleo:</b> ${fd(v.dOleo)}`}
+function draw(){let t=0;const R=RS();if(sel&&!R.some(r=>r.id==sel))sel=null;
+ $('#tb').innerHTML=R.map(r=>{const k=km(r);if(k>0)t+=k;return `<tr class="r${r.id==sel?' sel':''}" data-id="${r.id}"><td>${fd(r.data)}</td><td>${esc(r.kmS)}</td><td>${esc(r.kmC)}</td><td>${esc(r.hS)}</td><td>${esc(r.hC)}</td><td>${esc(r.od)}</td><td>${esc(r.mot)}</td><td>${r.visto?'✔':''}</td><td>${esc(r.fin)}</td><td>${esc(r.usu)}</td><td>${k??''}</td></tr>`}).join('')||'<tr><td colspan="11">Nenhum registro.</td></tr>';
+ $('#tot').textContent=t;$('#acts').hidden=!sel;head()}
+$('#tb').onclick=e=>{const tr=e.target.closest('tr.r');if(!tr)return;sel=sel==tr.dataset.id?null:tr.dataset.id;draw()};
+function clr(){F.forEach(([k])=>$('#f_'+k).value='');$('#visto').checked=false;ed=null;$('#lv').hidden=true;$('#ft').textContent='Novo registro';$('#cancel').hidden=true;$('#add').textContent='Salvar registro';$('#err').textContent='';
+ const l=RS().at(-1),u=ult();if(u!=null)$('#f_kmS').value=u;if(l)['mot','usu'].forEach(k=>$('#f_'+k).value=l[k]||'');$('#f_data').value=new Date().toLocaleDateString('sv')}
+$('#ed').onclick=()=>{const r=S.r.find(x=>x.id==sel);if(!r)return;F.forEach(([k])=>$('#f_'+k).value=r[k]??'');$('#visto').checked=!!r.visto;ed=r.id;$('#f_vid').value=r.vid;$('#lv').hidden=false;$('#ft').textContent='Editando registro';$('#cancel').hidden=false;$('#add').textContent='Salvar alterações';$('#err').textContent='';scrollTo(0,0)};
+let dcb=null;const ask=(m,cb)=>{$('#dlgp').textContent=m;dcb=cb;$('#dlg').showModal()};
+$('#del').onclick=()=>ask('Deseja realmente excluir este registro? Esta ação poderá afetar o histórico de quilometragem e os relatórios exportados.',()=>{S.ab.forEach(a=>{if(a.tid==sel)a.tid=''});S.r=S.r.filter(x=>x.id!=sel);sel=null;save();draw();if(ed==null)clr()});
+$('#dn').onclick=()=>$('#dlg').close();$('#dy').onclick=()=>{$('#dlg').close();dcb&&dcb()};
+$('#cancel').onclick=clr;
+$('#add').onclick=()=>{const r={visto:$('#visto').checked,id:ed||uid(),vid:ed?$('#f_vid').value:V().id};F.forEach(([k,,t])=>{const v=$('#f_'+k).value.trim();r[k]=t=='number'&&v!==''?Number(v):v});
+ let e='';if(!r.data)e='Informe a data.';else if(r.kmS===''||r.kmC==='')e='Informe KM de saída e de chegada.';else if(r.kmC<r.kmS)e='KM de chegada não pode ser menor que o KM de saída.';else if(!r.od)e='Informe origem / destino.';
+ $('#err').textContent=e;if(e)return;
+ if(!ed){const u=ult();if(u!=null&&r.kmS!==u){const j=prompt(`O KM de saída (${r.kmS}) difere do último KM de chegada deste veículo (${u}).\nInforme uma justificativa (opcional) e toque em OK para salvar, ou Cancelar para corrigir:`);if(j===null)return;if(j.trim())r.just=j.trim()}}
+ else{const o=S.r.find(x=>x.id==ed);if(o&&o.just)r.just=o.just}
+ ed?S.r[S.r.findIndex(x=>x.id==ed)]=r:S.r.push(r);S.ab.forEach(a=>{if(a.tid==r.id&&a.vid!=r.vid)a.tid=''});save();sel=null;draw();clr()};
+const rows=()=>RS().map(r=>[fd(r.data),r.kmS,r.kmC,r.hS,r.hC,r.od,r.mot,r.visto?'OK':'',r.fin,r.usu]);
+const HD=['DATA','KM SAÍDA','KM CHEGADA','HORA SAÍDA','HORA CHEGADA','ORIGEM / DESTINO','NOME MOTORISTA (legível)','VISTO MOTORISTA','FINALIDADE','USUÁRIO'];
+function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+const nm=()=>`diario-bordo-${(V().placa||'veiculo').replace(/\W/g,'')}-${new Date().toLocaleDateString('sv')}`;
+
+const hoje=()=>new Date().toLocaleDateString('sv'),ds=d=>d.toLocaleDateString('sv'),inP=(d,i,f)=>(!i||d>=i)&&(!f||d<=f);
+const money=n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),lit=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const TR=(vid,i,f)=>S.r.map((r,k)=>[r,k]).filter(x=>x[0].vid==vid&&inP(x[0].data,i,f)).sort((a,b)=>(a[0].data+(a[0].hS||'')).localeCompare(b[0].data+(b[0].hS||''))||a[1]-b[1]).map(x=>x[0]);
+const FU=(vid,i,f)=>S.ab.filter(a=>(!vid||a.vid==vid)&&inP(a.data,i,f)).sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora)),vl=id=>{const v=S.veics.find(x=>x.id==id);return v?v.veiculo+' – '+v.placa:'?'};
+function itens(o){const ids=new Set(o.t.map(r=>r.id)),by={};o.a.forEach(a=>{if(a.tid&&ids.has(a.tid))(by[a.tid]=by[a.tid]||[]).push(a)});
+ const R=o.t.map(r=>({t:r,f:by[r.id]||[]}));o.a.filter(a=>!(a.tid&&ids.has(a.tid))).forEach(a=>R.push({t:null,f:[a]}));return R}
+function show(t){['d','a','e'].forEach(k=>$('#t_'+k).hidden=k!=t);document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));if(t=='a')alist();if(t=='e')prev();scrollTo(0,0)}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>show(b.dataset.t));
+let selA=null,eda=null;
+function tripOpts(){const v=$('#a_vid').value,k=$('#a_tid').value;$('#a_tid').innerHTML='<option value="">Nenhuma (abastecimento avulso)</option>'+TR(v,'','').map(r=>`<option value="${r.id}">${fd(r.data)} — ${esc(r.od)}</option>`).join('');$('#a_tid').value=k}
+$('#a_vid').onchange=()=>{$('#a_tid').value='';tripOpts()};
+function aclr(){['km','posto','lit','prec','tot','obs'].forEach(k=>$('#a_'+k).value='');$('#a_vid').value=S.ativo;tripOpts();$('#a_tid').value='';$('#a_data').value=hoje();$('#a_hora').value=new Date().toTimeString().slice(0,5);eda=null;$('#aft').textContent='Novo abastecimento';$('#a_cancel').hidden=true;$('#a_add').textContent='Salvar abastecimento';$('#aerr').textContent=''}
+function calc(){const t=parseFloat($('#a_tot').value),p=parseFloat($('#a_prec').value);const el=$('#a_lit');
+ if(!(p>0)&&$('#a_prec').value!==''){el.value='';$('#aerr').textContent='O preço por litro deve ser maior que zero.';return null}
+ if(t>0&&p>0){const l=Math.round(t/p*100)/100;el.value=l.toFixed(2);$('#aerr').textContent='';return l}el.value='';return null}
+['a_tot','a_prec'].forEach(i=>$('#'+i).oninput=calc);
+$('#a_add').onclick=()=>{const g=k=>$('#a_'+k).value.trim(),n=k=>g(k)===''?NaN:Number(g(k));const tot=n('tot'),pre=n('prec'),L=pre>0&&tot>0?Math.round(tot/pre*100)/100:NaN;
+ const a={id:eda||uid(),vid:g('vid'),data:g('data'),hora:g('hora'),km:g('km')===''?null:n('km'),posto:g('posto'),comb:g('comb'),litros:L,preco:pre,total:tot,tid:g('tid'),obs:g('obs')};
+ let e='';if(!a.vid)e='Selecione o veículo.';else if(!a.data||!a.hora)e='Informe data e horário.';else if(!a.posto)e='Informe o posto de combustível.';else if(!(a.total>0))e='O valor total pago deve ser maior que zero.';else if(!(a.preco>0))e='O preço por litro deve ser maior que zero.';else if(!(a.litros>0))e='O valor pago é pequeno demais para o preço informado (litros = 0).';else if(a.km!==null&&!(a.km>=0))e='A quilometragem deve ser 0 ou maior.';
+ $('#aerr').textContent=e;if(e)return;
+ if(a.tid){const t=S.r.find(x=>x.id==a.tid);if(!t||t.vid!=a.vid)a.tid=''}
+ eda?S.ab[S.ab.findIndex(x=>x.id==eda)]=a:S.ab.push(a);save();selA=null;aclr();alist()};
+$('#a_cancel').onclick=aclr;
+function alist(){const i=$('#q_ini').value,f=$('#q_fim').value,v=$('#q_vid').value,p=$('#q_posto').value.trim().toLowerCase(),c=$('#q_comb').value;
+ const R=FU(v,i,f).filter(a=>(!p||(a.posto||'').toLowerCase().includes(p))&&(!c||a.comb==c)).reverse();if(selA&&!R.some(a=>a.id==selA))selA=null;
+ $('#atb').innerHTML=R.map(a=>`<tr class="r${a.id==selA?' sel':''}" data-id="${a.id}"><td>${fd(a.data)}</td><td>${esc(a.hora)}</td><td>${esc(vl(a.vid))}</td><td>${a.km??''}</td><td>${esc(a.posto)}</td><td>${lit(a.litros)}</td><td>${money(a.preco)}</td><td>${money(a.total)}</td></tr>`).join('')||'<tr><td colspan="8">Nenhum abastecimento.</td></tr>';
+ const L=R.reduce((q,a)=>q+a.litros,0),T=R.reduce((q,a)=>q+a.total,0);
+ $('#asum').innerHTML=`<div class="cd">Abastecimentos<b>${R.length}</b></div><div class="cd">Total de litros<b>${lit(L)}</b></div><div class="cd">Valor total gasto<b>${money(T)}</b></div><div class="cd">Mais recente<b>${R[0]?fd(R[0].data)+' às '+R[0].hora:'—'}</b></div>`;
+ const a=R.find(x=>x.id==selA),t=a&&a.tid&&S.r.find(x=>x.id==a.tid);$('#aacts').hidden=!a;$('#adet').innerHTML=a?`<b>${esc(vl(a.vid))}</b> — ${fj(a)} ${esc(a.comb)}; ${lit(a.litros)} L a ${money(a.preco)}/L${a.km!=null?'; KM '+a.km:''}; posto: ${esc(a.posto)||'não informado'}${t?'; viagem: '+fd(t.data)+' '+esc(t.od):''}${a.obs?'; obs.: '+esc(a.obs):''}`:''}
+['q_ini','q_fim','q_vid','q_posto','q_comb'].forEach(i=>$('#'+i).oninput=alist);
+$('#atb').onclick=e=>{const tr=e.target.closest('tr.r');if(!tr)return;selA=selA==tr.dataset.id?null:tr.dataset.id;alist()};
+$('#a_ed').onclick=()=>{const a=S.ab.find(x=>x.id==selA);if(!a)return;$('#a_vid').value=a.vid;tripOpts();$('#a_tid').value=a.tid||'';$('#a_data').value=a.data;$('#a_hora').value=a.hora;$('#a_km').value=a.km??'';$('#a_posto').value=a.posto;$('#a_comb').value=a.comb;$('#a_prec').value=a.preco;$('#a_tot').value=a.total;calc();$('#a_obs').value=a.obs||'';eda=a.id;$('#aft').textContent='Editando abastecimento';$('#a_cancel').hidden=false;$('#a_add').textContent='Salvar alterações';$('#aerr').textContent='';scrollTo(0,0)};
+$('#a_del').onclick=()=>ask('Deseja realmente excluir este abastecimento? Esta ação poderá afetar os relatórios exportados.',()=>{S.ab=S.ab.filter(x=>x.id!=selA);selA=null;save();if(eda==null)aclr();alist()});
+const AT={h:()=>[hoje(),hoje()],s7:()=>{const d=new Date();d.setDate(d.getDate()-6);return[ds(d),hoje()]},s30:()=>{const d=new Date();d.setDate(d.getDate()-29);return[ds(d),hoje()]},mes:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m,1)),ds(new Date(y,m+1,0))]},ant:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m-1,1)),ds(new Date(y,m,0))]},todo:()=>['','']};
+document.querySelectorAll('#atalhos button').forEach(b=>b.onclick=()=>{[$('#e_ini').value,$('#e_fim').value]=AT[b.dataset.a]();prev()});
+function EX(){const i=$('#e_ini').value,f=$('#e_fim').value,vid=$('#e_vid').value;const e=i&&f&&i>f?'A data inicial deve ser anterior ou igual à data final.':'';return{i,f,e,L:(vid?S.veics.filter(v=>v.id==vid):S.veics).map(v=>({v,t:TR(v.id,i,f),a:FU(v.id,i,f)}))}}
+function prev(){const x=EX();$('#e_err').textContent=x.e;$('#e_prev').innerHTML=x.e?'':x.L.map(o=>`<b>${esc(o.v.veiculo)} – ${esc(o.v.placa)}</b>: ${o.t.length} viagem(ns) e ${o.a.length} abastecimento(s) serão exportados`).join('<br>')}
+['e_ini','e_fim','e_vid'].forEach(i=>$('#'+i).oninput=prev);
+const nmx=x=>`diario-bordo-${x.i||'inicio'}_${x.f||'fim'}`,vaz=x=>{const L=x.L.filter(o=>o.t.length||o.a.length);if(!L.length)alert('Nenhum registro no período selecionado. Nada foi gerado.');return L};
+$('#csv').onclick=()=>{const x=EX();if(x.e)return;const L=vaz(x);if(!L.length)return;const q=v=>`"${String(v??'').replace(/"/g,'""')}"`,R=[['Veículo','Placa',...HD,'KM RODADO']];
+ L.forEach(o=>o.t.forEach(r=>R.push([o.v.veiculo,o.v.placa,fd(r.data),r.kmS,r.kmC,r.hS,r.hC,r.od,r.mot,r.visto?'OK':'',r.fin,r.usu,km(r)??''])));R.push([],['Abastecimentos'],['Veículo','Placa','Data','Hora','KM','Posto','Combustível','Litros','R$/litro','Total','Obs.']);
+ L.forEach(o=>o.a.forEach(a=>R.push([o.v.veiculo,o.v.placa,fd(a.data),a.hora,a.km,a.posto,a.comb,a.litros,a.preco,a.total,a.obs])));dl(new Blob(['\ufeff'+R.map(l=>l.map(q).join(';')).join('\r\n')],{type:'text/csv'}),nmx(x)+'.csv')};
+const TPL='modelo-diario-de-bordo.xlsx',X=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\r\n]+/g,' '),T=t=>`<t xml:space="preserve">${X(t)}</t>`;
+const RP='<rPr><b/><sz val="7"/><rFont val="Arial"/><family val="2"/></rPr>',R7=t=>`<r>${RP}${T(t)}</r>`;
+function put(x,ref,inner,num){const re=new RegExp(`<c r="${ref}"( s="\\d+")?[^>]*?(/>|>.*?</c>)`,'s');if(!re.test(x))throw Error('Célula '+ref+' não encontrada no modelo');
+ return x.replace(re,(m,s)=>num?`<c r="${ref}"${s||''}><v>${inner}</v></c>`:`<c r="${ref}"${s||''} t="inlineStr"><is>${inner}</is></c>`)}
+const serial=d=>d?Math.round((Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))-Date.UTC(1899,11,30))/864e5):null;
+const TN=t=>`<t xml:space="preserve">${String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</t>`;
+const fj=a=>`${fd(a.data)} — ${a.hora} — ${lit(a.litros)} litros — ${money(a.total)}.`;
+async function gerar(rows,h,obs,per){per=per||{};
+ const z=await JSZip.loadAsync(await (await fetch(TPL)).arrayBuffer());let x=await z.file('xl/worksheets/sheet1.xml').async('string');
+ x=put(x,'A2',T('Veículo: '+(h.veiculo||'')));x=put(x,'C2',`<r>${T('Placa:')}</r>`+R7(' '+(h.placa||'')));
+ x=put(x,'F2',T('Km Final: '+(h.kmFinal??'')));x=put(x,'G2',T('Data Início:  '+fd(per.ini||h.dIni)));x=put(x,'I2',T('Data Final: '+fd(per.fim||h.dFim)));
+ x=put(x,'J1',R7('KM Troca Óleo:')+R7(h.kmOleo!==undefined&&h.kmOleo!==''?' '+h.kmOleo:''));x=put(x,'J2',R7('Data Troca Óleo:')+R7(h.dOleo?' '+fd(h.dOleo):''));
+ let sc=0;rows.forEach((o,i)=>{const n=4+i,r=o.t;
+  if(r){const sd=serial(r.data);if(sd)x=put(x,'A'+n,sd,1);x=put(x,'B'+n,r.kmS,1);x=put(x,'C'+n,r.kmC,1);sc+=r.kmC;
+   [['D',r.hS],['E',r.hC],['F',r.od],['G',r.mot],['H',r.visto?'OK':''],['I',r.fin]].forEach(([c,v])=>{if(v)x=put(x,c+n,T(v))})}
+  if(o.f.length){x=put(x,'J'+n,TN(o.f.map(fj).join('\n')));const L=o.f.reduce((q,a)=>q+Math.ceil(fj(a).length/25),0);if(L>2)x=x.replace(new RegExp(`(<row r="${n}"[^>]*?) ht="24.95"`),`$1 ht="${12.5*L+2}"`)}});
+ x=x.replace('<f>SUM(C4:C22)</f><v>0</v>',`<f>SUM(C4:C22)</f><v>${sc}</v>`);
+ if(obs){const L=obs.split('\n').reduce((q,l)=>q+Math.max(1,Math.ceil(l.length/200)),0);x=x.replace(/(<row r="24"[^>]*?) ht="24"/,`$1 ht="${Math.max(24,12.5*L+6)}"`);
+  x=put(x,'A24',`<r><rPr><b/><sz val="9"/><rFont val="Arial"/><family val="2"/></rPr>${T('Observações: ')}</r><r><rPr><sz val="9"/><rFont val="Arial"/><family val="2"/></rPr>${TN(obs)}</r>`)}
+ z.file('xl/worksheets/sheet1.xml',x,{createFolders:false});
+ let w=await z.file('xl/workbook.xml').async('string');z.file('xl/workbook.xml',w.replace('<calcPr calcId="191029"/>','<calcPr calcId="191029" fullCalcOnLoad="1"/>'),{createFolders:false});
+ return z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'})}
+$('#xl').onclick=async()=>{const x=EX();if(x.e)return;const L=vaz(x);if(!L.length)return;
+ try{const F=[];for(const o of L){const I=itens(o),P=[];for(let k=0;k<Math.max(1,I.length);k+=19)P.push(I.slice(k,k+19));
+  P.forEach(async()=>{});for(let k=0;k<P.length;k++)F.push([`${nmx(x)}-${o.v.placa.replace(/\W/g,'')}${P.length>1?'-parte'+(k+1):''}.xlsx`,await gerar(P[k],o.v,o.v.obs||'',{ini:x.i,fim:x.f})])}
+  if(F.length==1)return dl(F[0][1],F[0][0]);const zz=new JSZip();F.forEach(([n,b])=>zz.file(n,b));dl(await zz.generateAsync({type:'blob'}),nmx(x)+'.zip');alert(`Foram gerados ${F.length} arquivos Excel dentro do .zip (um por veículo e por bloco de 19 linhas).`)}
+ catch(e){alert('Falha ao exportar o Excel: '+e.message)}};
+$('#pr').onclick=()=>{const x=EX();if(x.e)return;const L=vaz(x);if(!L.length)return;
+ $('#pv').innerHTML=L.map(o=>{const v=o.v;let t=0;const rw=o.t.map(r=>{const k=km(r);if(k>0)t+=k;return `<tr class="r"><td>${fd(r.data)}</td><td>${esc(r.kmS)}</td><td>${esc(r.kmC)}</td><td>${esc(r.hS)}</td><td>${esc(r.hC)}</td><td>${esc(r.od)}</td><td>${esc(r.mot)}</td><td>${r.visto?'✔':''}</td><td>${esc(r.fin)}</td><td>${esc(r.usu)}</td><td>${k??''}</td></tr>`}).join('')||'<tr><td colspan="11">Sem viagens no período.</td></tr>';
+ return `<div class="pg"><img src="logo-masters.svg" style="height:30px"><h3>Controle de Utilização Veículo</h3><p><b>Veículo:</b> ${esc(v.veiculo)} &nbsp; <b>Placa:</b> ${esc(v.placa)} &nbsp; <b>Km Final:</b> ${esc(v.kmFinal)} &nbsp; <b>Período:</b> ${fd(x.i||v.dIni)} a ${fd(x.f||v.dFim)} &nbsp; <b>KM Troca Óleo:</b> ${esc(v.kmOleo)} &nbsp; <b>Data Troca Óleo:</b> ${fd(v.dOleo)}</p><table><thead><tr><th>DATA</th><th>KM SAÍDA</th><th>KM CHEGADA</th><th>HORA SAÍDA</th><th>HORA CHEGADA</th><th>ORIGEM / DESTINO</th><th>NOME MOTORISTA</th><th>VISTO</th><th>FINALIDADE</th><th>USUÁRIO</th><th>KM RODADO</th></tr></thead><tbody>${rw}</tbody><tfoot><tr><td colspan="10" style="text-align:right">Total (KM rodado)</td><td>${t}</td></tr></tfoot></table>${o.a.length?'<p><b>Abastecimentos:</b><br>'+o.a.map(a=>esc(fj(a))).join('<br>')+'</p>':''}${v.obs?'<p><b>Observações:</b> '+esc(v.obs)+'</p>':''}</div>`}).join('');print()};
+let dp;addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;$('#inst').hidden=false});
+$('#inst').onclick=async()=>{dp.prompt();await dp.userChoice;$('#inst').hidden=true};
+if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#ios').hidden=false;
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js'));
+setTimeout(()=>{$('#splash').style.opacity=0;setTimeout(()=>$('#splash').remove(),450)},1100);
+sv();$('#e_vid').value=S.ativo;fillH();draw();clr();aclr();
+</script></body></html>
