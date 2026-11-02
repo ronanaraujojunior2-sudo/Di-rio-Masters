@@ -1,35 +1,20 @@
-DIÁRIO DE BORDO — MASTERS | VERSÃO 12 (AMBIENTE DE TESTES)
+DIÁRIO DE BORDO – MASTERS ENGENHARIA (PWA)
 
-CONTEÚDO: index.html, sw.js, manifest.webmanifest, logo-masters.svg, modelo-diario-de-bordo.xlsx,
-vendor/jszip.min.js, icons/ (5 PNGs), REGRAS-FIRESTORE.txt. Envie tudo mantendo as pastas.
-NÃO use a subpasta "Diario-Masters-desenvolvimento" do zip antigo: está incompleta (sw.js vazio e sem index.html).
+PUBLICAR: envie TODOS os arquivos desta pasta (mantendo as subpastas) para uma hospedagem com HTTPS
+(GitHub Pages, Netlify, Cloudflare Pages etc.). Sem HTTPS o navegador não instala o aplicativo.
+Não abra o index.html direto do arquivo: instalação e modo offline só funcionam pelo endereço HTTPS.
 
-ORDEM DE PUBLICAÇÃO
-1. Backup: no GitHub, Code > Download ZIP (ou copie os arquivos atuais).
-2. Firebase Console > Firestore Database > Regras: confira que as regras de REGRAS-FIRESTORE.txt estão publicadas
-   (esta versão não alterou as regras). Confira em Firestore > Dados > usuarios que cada conta tem
-   uid = UID da conta, usuario (MASTERS/RONAN), perfil (administrador/usuario) e status = ativo.
-3. GitHub > repositório > Add file > Upload files: arraste index.html, sw.js e (se ainda não estiverem lá)
-   as demais pastas/arquivos > Commit changes. Aguarde 1 a 3 minutos.
-4. Abra o endereço do GitHub Pages; no rodapé/aviso deve constar "Versão de desenvolvimento 12".
-   Se aparecer outra versão: feche o app por completo e abra de novo, com internet.
+INSTALAR
+- Android (Chrome): abra o endereço > botão "Instalar aplicativo" ou menu ⋮ > "Instalar aplicativo".
+- iPhone (Safari): Compartilhar > "Adicionar à Tela de Início".
 
-O QUE MUDOU NESTA VERSÃO
-- Datas e horas de qualquer tipo (texto, número, vazio) não derrubam mais a ordenação nem a formatação.
-- Exclusões feitas em um aparelho agora chegam aos outros e não "ressuscitam" registros apagados.
-- A sessão é restaurada ao atualizar a página (não pede senha de novo).
-- Botão "Sair (USUÁRIO)" visível após o login (antes ficava escondido dentro da tela de login).
-- Funcionários não acumulam veículos padrão criados localmente quando já existem veículos na nuvem.
+CONFERIR O ÍCONE: na tela inicial deve aparecer o "m" azul sobre fundo branco, com o nome
+"Diário Masters". Se aparecer ícone antigo, remova o app e instale de novo.
 
-TESTES NO SEU AMBIENTE (conta MASTERS em um aparelho e RONAN em outro)
-A. RONAN: assuma o veículo, crie uma viagem e um abastecimento. MASTERS deve vê-los em poucos segundos.
-B. RONAN edita e depois exclui o registro. MASTERS deve ver a edição e depois o desaparecimento.
-C. Atualize a página: deve continuar logado e com os dados.
-D. Sair e entrar como o outro usuário no mesmo aparelho: RONAN não pode ver registros de terceiros.
-E. Firestore > Dados: confirme os documentos em viagens/abastecimentos com o campo uid correto.
-F. Console do navegador (F12 > Console): não deve haver erros em vermelho.
+ARQUIVOS
+- original/Master_s.jpeg : logo original (na verdade um SVG), preservada sem alteração.
+- logo-masters.svg : cópia idêntica, usada na abertura e no cabeçalho.
+- icons/ : ícones gerados da logo (192, 512, maskable 512, apple-touch 180, favicon 32).
 
-LIMITAÇÕES CONHECIDAS
-- Ainda não há fila offline completa: sem internet o dado fica no aparelho e sincroniza ao voltar a conexão.
-- Conflito de edição simultânea no mesmo registro: vale a última gravação.
-- Dados de outros usuários que já estavam no navegador ficam ocultos do app, mas continuam no armazenamento do aparelho.
+Excel: na primeira exportação é preciso internet (biblioteca SheetJS); depois fica em cache. CSV funciona offline.
+Os dados ficam salvos no próprio aparelho (não sincronizam entre celular e computador).
