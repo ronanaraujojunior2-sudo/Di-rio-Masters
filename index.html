@@ -239,7 +239,14 @@ $('#arquivo-importacao').onchange=async e=>{
   const novosV=[],obterV=(nome,placa)=>{let v=[...S.veics,...novosV].find(x=>(placa&&String(x.placa||'').toLowerCase()===placa.toLowerCase())||(!placa&&String(x.veiculo||'').toLowerCase()===nome.toLowerCase()));if(!v){v={id:uid(),veiculo:nome||'Veículo importado',placa:placa||'',obs:''};novosV.push(v)}return v};
   const existentesT=new Set(S.r.map(r=>{const v=S.veics.find(x=>x.id===r.vid);return chaveViagem(r,v?.placa||'')}));
   const existentesA=new Set(S.ab.map(a=>{const v=S.veics.find(x=>x.id===a.vid);return chaveAb(a,v?.placa||'')}));
-  const addT=[],addA=[];for(const r of viagens){const v=obterV(r.veiculo,r.placa),k=chaveViagem(r,v.placa);if(!existentesT.has(k)){addT.push({...r,id:uid(),vid:v.id});existentesT.add(k)}}
+  const addT=[],addA=[];for(const r of viagens){const v=obterV(r.veiculo,r.placa),k=chaveViagem(r,v.placa);if(!existentesT.has(k))addT.push({
+  ...r,
+  id: uid(),
+  vid: v.id,
+  uid: window.mastersCurrentUser?.uid || '',
+  usuarioRegistro: window.mastersProfile?.usuario || '',
+  compartilhado: true
+});
   for(const a of abasts){const v=obterV(a.veiculo,a.placa),k=chaveAb(a,v.placa);if(!existentesA.has(k)){addA.push({...a,id:uid(),vid:v.id,tid:''});existentesA.add(k)}}
   const dupT=viagens.length-addT.length,dupA=abasts.length-addA.length;
   const resumo=`Arquivo: ${file.name}\nEncontrados: ${viagens.length} viagens e ${abasts.length} abastecimentos.\nNovos: ${addT.length} viagens e ${addA.length} abastecimentos.\nPossíveis duplicados ignorados: ${dupT} viagens e ${dupA} abastecimentos.\n\nDeseja acrescentar os novos registros? Os dados existentes não serão apagados.`;
