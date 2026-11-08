@@ -132,14 +132,121 @@ $('#nv-cancelar').onclick=()=>$('#vehicle-dialog').close();
 $('#nv-salvar').onclick=()=>{const nome=$('#nv-nome').value.trim(),modelo=$('#nv-modelo').value.trim(),placa=$('#nv-placa').value.trim().toUpperCase(),kmAtual=$('#nv-km').value.trim();let erro='';if(!nome)erro='Informe uma identificação para o veículo.';else if(!modelo)erro='Informe o modelo do veículo.';else if(kmAtual===''||!Number.isFinite(Number(kmAtual))||Number(kmAtual)<0)erro='Informe a quilometragem atual válida.';else if(placa&&S.veics.some(v=>npl(v.placa)===npl(placa)))erro='Já existe um veículo cadastrado com essa placa.';$('#nv-erro').textContent=erro;if(erro)return;const id=uid();S.veics.push({id,veiculo:nome,modelo,placa,kmAtual:Number(kmAtual),obs:''});S.ativo=id;save();$('#vehicle-dialog').close();sel=null;sv();fillH();draw();clr()};
 function head(){const v=V();$('#ph').innerHTML=`<b>Veículo:</b> ${esc(v.veiculo)} &nbsp; <b>Placa:</b> ${esc(v.placa)} &nbsp; <b>Km Final:</b> ${esc(v.kmFinal)} &nbsp; <b>Período:</b> ${fd(v.dIni)} a ${fd(v.dFim)} &nbsp; <b>KM Troca Óleo:</b> ${esc(v.kmOleo)} &nbsp; <b>Data Troca Óleo:</b> ${fd(v.dOleo)}`}
 const PG={},PP=10;let lastV=null;
-function draw(){let t=0;const R=RS(),vid=V().id;if(lastV!==vid){PG[vid]=1;lastV=vid}if(sel&&!R.some(r=>r.id==sel))sel=null;
- R.forEach(r=>{const k=km(r);if(k>0)t+=k});
- const D=R.slice().reverse(),np=Math.max(1,Math.ceil(D.length/PP)),p=Math.min(Math.max(1,PG[vid]||1),np);PG[vid]=p;
- $('#tb').innerHTML=D.slice((p-1)*PP,p*PP).map(r=>{const k=km(r);return `<tr class="r${r.id==sel?' sel':''}" data-id="${r.id}"><td>${fd(r.data)}</td><td>${esc(r.kmS)}</td><td>${esc(r.kmC)}</td><td>${esc(r.hS)}</td><td>${esc(r.hC)}</td><td>${esc(r.od)}</td><td>${esc(r.mot)}</td><td>${r.visto?'✔':''}</td><td>${esc(r.fin)}</td><td>${esc(r.usu)}</td><td>${k??''}</td></tr>`}).join('')||'<tr><td colspan="11">Nenhum registro.</td></tr>';
- $('#pg-info').textContent=`Página ${p} de ${np} · ${D.length} viagem(ns)`;$('#pg-prev').disabled=p<=1;$('#pg-next').disabled=p>=np;
- $('#tot').textContent=t;$('#acts').hidden=!sel||!window.mastersCanManageRecord?.(S.r.find(r=>r.id==sel));head()}
-$('#pg-prev').onclick=()=>{PG[V().id]=(PG[V().id]||1)-1;sel=null;draw()};$('#pg-next').onclick=()=>{PG[V().id]=(PG[V().id]||1)+1;sel=null;draw()};
-$('#tb').onclick=e=>{const tr=e.target.closest('tr.r');if(!tr)return;sel=sel==tr.dataset.id?null:tr.dataset.id;draw()};
+function draw() {
+  let t = 0;
+  const R = RS();
+  const vid = V().id;
+
+  if (lastV !== vid) {
+    PG[vid] = 1;
+    lastV = vid;
+  }
+
+  if (sel && !R.some(r => r.id == sel)) sel = null;
+
+  // Normaliza os campos para identificar cópias.
+  const normalizar = v => String(v ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+
+  // Identifica a mesma viagem mesmo com IDs diferentes.
+  const assinatura = r => JSON.stringify([
+    normalizar(r.vid || vid),
+    normalizar(r.data),
+    normalizar(r.kmS),
+    normalizar(r.kmC),
+    normalizar(r.hS),
+    normalizar(r.hC),
+    normalizar(r.od),
+    normalizar(r.mot),
+    normalizar(r.fin)
+  ]);
+
+  // Mantém apenas uma ocorrência na visualização.
+  // Não exclui nem modifica os registros originais.
+  const unicas = [];
+  const encontradas = new Set();
+
+  R.forEach(r => {
+    const chave = assinatura(r);
+
+    if (encontradas.has(chave)) return;
+
+    encontradas.add(chave);
+    unicas.push(r);
+  });
+
+  // Soma somente as viagens únicas.
+  unicas.forEach(r => {
+    const k = km(r);
+    if (k > 0) t += k;
+  });
+
+  const D = unicas.slice().reverse();
+  const np = Math.max(1, Math.ceil(D.length / PP));
+  const p = Math.min(Math.max(1, PG[vid] || 1), np);
+
+  PG[vid] = p;
+
+  $('#tb').innerHTML = D
+    .slice((p - 1) * PP, p * PP)
+    .map(r => {
+      const k = km(r);
+
+      return `<tr class="r${r.id == sel ? ' sel' : ''}" data-id="${r.id}">
+        <td>${fd(r.data)}</td>
+        <td>${esc(r.kmS)}</td>
+        <td>${esc(r.kmC)}</td>
+        <td>${esc(r.hS)}</td>
+        <td>${esc(r.hC)}</td>
+        <td>${esc(r.od)}</td>
+        <td>${esc(r.mot)}</td>
+        <td>${r.visto ? '✔' : ''}</td>
+        <td>${esc(r.fin)}</td>
+        <td>${esc(r.usu)}</td>
+        <td>${k ?? ''}</td>
+      </tr>`;
+    })
+    .join('') || '<tr><td colspan="11">Nenhum registro.</td></tr>';
+
+  $('#pg-info').textContent =
+    `Página ${p} de ${np} · ${D.length} viagem(ns)`;
+
+  $('#pg-prev').disabled = p <= 1;
+  $('#pg-next').disabled = p >= np;
+
+  $('#tot').textContent = t;
+
+  $('#acts').hidden =
+    !sel || !window.mastersCanManageRecord?.(
+      S.r.find(r => r.id == sel)
+    );
+
+  head();
+}
+
+$('#pg-prev').onclick = () => {
+  PG[V().id] = (PG[V().id] || 1) - 1;
+  sel = null;
+  draw();
+};
+
+$('#pg-next').onclick = () => {
+  PG[V().id] = (PG[V().id] || 1) + 1;
+  sel = null;
+  draw();
+};
+
+$('#tb').onclick = e => {
+  const tr = e.target.closest('tr.r');
+  if (!tr) return;
+
+  sel = sel == tr.dataset.id ? null : tr.dataset.id;
+  draw();
+};
 function clr(){F.forEach(([k])=>$('#f_'+k).value='');$('#visto').checked=false;ed=null;$('#lv').hidden=true;$('#ft').textContent='Novo registro';$('#cancel').hidden=true;$('#add').textContent='Salvar registro';$('#err').textContent='';
  const l=RS().at(-1),u=ult();if(u!=null)$('#f_kmS').value=u;else if(V()&&V().kmAtual!=null)$('#f_kmS').value=V().kmAtual;if(l)['mot','usu'].forEach(k=>$('#f_'+k).value=l[k]||'');$('#f_data').value=new Date().toLocaleDateString('sv')}
 $('#ed').onclick=()=>{const r=S.r.find(x=>x.id==sel);if(!r||!window.mastersCanManageRecord?.(r))return;F.forEach(([k])=>$('#f_'+k).value=r[k]??'');$('#visto').checked=!!r.visto;ed=r.id;$('#f_vid').value=r.vid;$('#lv').hidden=false;$('#ft').textContent='Editando registro';$('#cancel').hidden=false;$('#add').textContent='Salvar alterações';$('#err').textContent='';scrollTo(0,0)};
