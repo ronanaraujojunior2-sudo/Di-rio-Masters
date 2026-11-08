@@ -298,18 +298,113 @@ const POSTO_PADRAO='Posto Atem - Posto Distrito II';
 function postos(){const m=new Map();m.set(POSTO_PADRAO.toLowerCase(),POSTO_PADRAO);S.ab.slice().sort((a,b)=>ckey(b.data,b.hora).localeCompare(ckey(a.data,a.hora))).forEach(a=>{const n=(a.posto||'').trim();if(n&&!m.has(n.toLowerCase()))m.set(n.toLowerCase(),n)});return[...m.values()]}
 function pl(){const L=postos();$('#postos').innerHTML=L.map(n=>`<option value="${esc(n)}">`).join('');$('#a_chips').innerHTML=L.slice(0,4).map(n=>`<button type="button" class="s" data-p="${esc(n)}" style="padding:6px 10px;font-size:13px">${esc(n)}</button>`).join('')}
 $('#a_chips').onclick=e=>{const b=e.target.closest('button[data-p]');if(b)$('#a_posto').value=b.dataset.p};
-function alist(){pl();const m=$('#q_mod').value,i=$('#q_ini').value,f=$('#q_fim').value,v=$('#q_vid').value,p=$('#q_posto').value.trim().toLowerCase(),c=$('#q_comb').value;
- const R=FU(v,i,f).filter(a=>(!p||(a.posto||'').toLowerCase().includes(p))&&(!c||a.comb==c)&&(!m||(m=='avulso'?!a.mod:a.mod==m))).reverse();if(selA&&!R.some(a=>a.id==selA))selA=null;
- $('#atb').innerHTML=R.map(a=>`<tr class="r${a.id==selA?' sel':''}" data-id="${a.id}"><td>${fd(a.data)}</td><td>${esc(a.hora)}</td><td>${esc(vl(a.vid))}</td><td>${a.km??''}</td><td>${esc(a.posto)}</td><td>${esc(modTxt(a))}</td><td>${lit(a.litros)}</td><td>${moneyP(a.preco)}</td><td>${money(a.total)}</td></tr>`).join('')||'<tr><td colspan="9">Nenhum abastecimento.</td></tr>';
- const L=R.reduce((q,a)=>q+a.litros,0),T=R.reduce((q,a)=>q+a.total,0);
- $('#asum').innerHTML=`<div class="cd">Abastecimentos<b>${R.length}</b></div><div class="cd">Total de litros<b>${lit(L)}</b></div><div class="cd">Valor total gasto<b>${money(T)}</b></div><div class="cd">Mais recente<b>${R[0]?fd(R[0].data)+' às '+R[0].hora:'—'}</b></div>`;
- const a=R.find(x=>x.id==selA),t=a&&a.tid&&S.r.find(x=>x.id==a.tid);$('#aacts').hidden=!a||!window.mastersCanManageRecord?.(a);$('#adet').innerHTML=a?`<b>${esc(vl(a.vid))}</b> — ${fj(a)} ${esc(a.comb)}; ${lit(a.litros)} L a ${moneyP(a.preco)}/L${a.km!=null?'; KM '+a.km:''}; modalidade: ${esc(modTxt(a))}; posto: ${esc(a.posto)||'não informado'}${t?'; viagem: '+fd(t.data)+' '+esc(t.od):''}${a.obs?'; obs.: '+esc(a.obs):''}`:''}
-['q_ini','q_fim','q_vid','q_posto','q_comb','q_mod'].forEach(i=>$('#'+i).oninput=alist);
-$('#atb').onclick=e=>{const tr=e.target.closest('tr.r');if(!tr)return;selA=selA==tr.dataset.id?null:tr.dataset.id;alist()};
-$('#a_ed').onclick=()=>{const a=S.ab.find(x=>x.id==selA);if(!a||!window.mastersCanManageRecord?.(a))return;$('#a_vid').value=a.vid;tripOpts();$('#a_tid').value=a.tid||(a.mod?'mod:'+a.mod:'');$('#a_data').value=a.data;$('#a_hora').value=a.hora;$('#a_km').value=a.km??'';$('#a_posto').value=a.posto;$('#a_comb').value=a.comb;$('#a_prec').value=br(a.preco,String(a.preco).split('.')[1]?.length>2?3:2);$('#a_tot').value=br(a.total,2);calc();$('#a_obs').value=a.obs||'';eda=a.id;$('#aft').textContent='Editando abastecimento';$('#a_cancel').hidden=false;$('#a_add').textContent='Salvar alterações';$('#aerr').textContent='';scrollTo(0,0)};
-$('#a_del').onclick=()=>{const target=S.ab.find(x=>x.id==selA);if(!window.mastersCanManageRecord?.(target))return;ask('Deseja realmente excluir este abastecimento? Esta ação poderá afetar os relatórios exportados.',()=>{S.__pendingDeletes=S.__pendingDeletes||[];S.__pendingDeletes.push({collection:'abastecimentos',id:String(selA)});S.ab=S.ab.filter(x=>x.id!=selA);selA=null;save();if(eda==null)aclr();alist()});};
-const AT={h:()=>[hoje(),hoje()],s7:()=>{const d=new Date();d.setDate(d.getDate()-6);return[ds(d),hoje()]},s30:()=>{const d=new Date();d.setDate(d.getDate()-29);return[ds(d),hoje()]},mes:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m,1)),ds(new Date(y,m+1,0))]},ant:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m-1,1)),ds(new Date(y,m,0))]},todo:()=>['','']};
-document.querySelectorAll('#atalhos button').forEach(b=>b.onclick=()=>{[$('#e_ini').value,$('#e_fim').value]=AT[b.dataset.a]();prev()});
+function alist() {
+  pl();
+
+  const m = $('#q_mod').value;
+  const i = $('#q_ini').value;
+  const f = $('#q_fim').value;
+  const v = $('#q_vid').value;
+  const p = $('#q_posto').value.trim().toLowerCase();
+  const c = $('#q_comb').value;
+
+  const normalizar = valor => String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+
+  // Identifica abastecimentos iguais mesmo com IDs diferentes.
+  const assinatura = a => JSON.stringify([
+    normalizar(a.vid),
+    normalizar(a.data),
+    normalizar(a.hora),
+    normalizar(a.km),
+    normalizar(a.posto),
+    normalizar(a.comb),
+    normalizar(a.litros),
+    normalizar(a.preco),
+    normalizar(a.total),
+    normalizar(a.mod),
+    normalizar(a.tid),
+    normalizar(a.obs)
+  ]);
+
+  // Remove cópias apenas da visualização.
+  const todos = S.ab || [];
+  const unicos = [];
+  const encontrados = new Set();
+
+  todos.forEach(a => {
+    const chave = assinatura(a);
+
+    if (encontrados.has(chave)) return;
+
+    encontrados.add(chave);
+    unicos.push(a);
+  });
+
+  // Mantém os filtros originais.
+  const R = FU(v, i, f)
+    .filter(a =>
+      (!p || (a.posto || '').toLowerCase().includes(p)) &&
+      (!c || a.comb == c) &&
+      (!m || (m == 'avulso' ? !a.mod : a.mod == m))
+    )
+    .filter(a => encontrados.has(assinatura(a)))
+    .filter(a => {
+      // Garante que somente a ocorrência escolhida seja exibida.
+      const original = unicos.find(x =>
+        assinatura(x) === assinatura(a)
+      );
+
+      return original && String(original.id) === String(a.id);
+    })
+    .reverse();
+
+  if (selA && !R.some(a => a.id == selA)) selA = null;
+
+  $('#atb').innerHTML = R.map(a => `
+    <tr class="r${a.id == selA ? ' sel' : ''}" data-id="${a.id}">
+      <td>${fd(a.data)}</td>
+      <td>${esc(a.hora)}</td>
+      <td>${esc(vl(a.vid))}</td>
+      <td>${a.km ?? ''}</td>
+      <td>${esc(a.posto)}</td>
+      <td>${esc(modTxt(a))}</td>
+      <td>${lit(a.litros)}</td>
+      <td>${moneyP(a.preco)}</td>
+      <td>${money(a.total)}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="9">Nenhum abastecimento.</td></tr>';
+
+  const L = R.reduce((q, a) => q + Number(a.litros || 0), 0);
+  const T = R.reduce((q, a) => q + Number(a.total || 0), 0);
+
+  $('#asum').innerHTML = `
+    <div class="cd">Abastecimentos<b>${R.length}</b></div>
+    <div class="cd">Total de litros<b>${lit(L)}</b></div>
+    <div class="cd">Valor total gasto<b>${money(T)}</b></div>
+    <div class="cd">Mais recente<b>${R[0] ? fd(R[0].data) + ' às ' + R[0].hora : '—'}</b></div>
+  `;
+
+  const a = R.find(x => x.id == selA);
+  const t = a && a.tid && S.r.find(x => x.id == a.tid);
+
+  $('#aacts').hidden =
+    !a || !window.mastersCanManageRecord?.(a);
+
+  $('#adet').innerHTML = a
+    ? `<b>${esc(vl(a.vid))}</b> — ${fj(a)} ${esc(a.comb)};
+      ${lit(a.litros)} L a ${moneyP(a.preco)}/L
+      ${a.km != null ? '; KM ' + a.km : ''};
+      modalidade: ${esc(modTxt(a))};
+      posto: ${esc(a.posto) || 'não informado'}
+      ${t ? '; viagem: ' + fd(t.data) + ' ' + esc(t.od) : ''}
+      ${a.obs ? '; obs.: ' + esc(a.obs) : ''}`
+    : '';
+}
 function EX(){const i=$('#e_ini').value,f=$('#e_fim').value,vid=$('#e_vid').value;const e=i&&f&&i>f?'A data inicial deve ser anterior ou igual à data final.':'';return{i,f,e,L:(vid?S.veics.filter(v=>v.id==vid):S.veics).map(v=>({v,t:TR(v.id,i,f),a:FU(v.id,i,f)}))}}
 function prev(){const x=EX();$('#e_err').textContent=x.e;$('#e_prev').innerHTML=x.e?'':x.L.map(o=>`<b>${esc(o.v.veiculo)} – ${esc(o.v.placa)}</b>: ${o.t.length} viagem(ns) e ${o.a.length} abastecimento(s) serão exportados`).join('<br>')}
 ['e_ini','e_fim','e_vid'].forEach(i=>$('#'+i).oninput=prev);
@@ -1311,27 +1406,115 @@ async function releaseCurrentVehicle(adminOverride=false,vehicleId=null){
 }
 function adminRelease(id){if(!isAdmin()){alert('Acesso restrito ao administrador MASTERS.');return;}releaseCurrentVehicle(true,id);}
 
+
 async function syncToCloud(){
-  const status=document.getElementById("cloud-status"),send=document.getElementById("cloud-send");
-  if(!isAdmin()){if(status)status.textContent="Somente MASTERS pode fazer a migração inicial dos dados antigos.";return;}
-  if(send)send.disabled=true;if(status)status.textContent="Enviando dados antigos sem apagar registros existentes…";
+  const status=document.getElementById("cloud-status");
+  const send=document.getElementById("cloud-send");
+
+  if(!isAdmin()){
+    if(status)status.textContent="Somente MASTERS pode fazer a migração inicial dos dados antigos.";
+    return;
+  }
+
+  if(send)send.disabled=true;
+  if(status)status.textContent="Verificando registros existentes no Firebase…";
+
+  const normalizar = v => String(v ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g,"")
+    .trim()
+    .replace(/\s+/g," ")
+    .toUpperCase();
+
+  const assinaturaAbastecimento = a => JSON.stringify([
+    normalizar(a.vid),
+    normalizar(a.data),
+    normalizar(a.hora),
+    normalizar(a.km),
+    normalizar(a.posto),
+    normalizar(a.comb),
+    normalizar(a.litros),
+    normalizar(a.preco),
+    normalizar(a.total),
+    normalizar(a.mod),
+    normalizar(a.tid),
+    normalizar(a.obs)
+  ]);
+
   try{
-    let created=0,skipped=0;
+    let created=0,skipped=0,duplicates=0;
+
     for(const group of cloudCollections){
+
+      let assinaturasFirebase=new Set();
+
+      // Carrega os abastecimentos que já existem no Firebase.
+      if(group.name==="abastecimentos"){
+        const existentes=await getDocs(collection(db,"abastecimentos"));
+
+        existentes.forEach(d=>{
+          assinaturasFirebase.add(
+            assinaturaAbastecimento(d.data())
+          );
+        });
+      }
+
       for(const row of (S[group.key]||[])){
         if(!row.id)continue;
-        const id=String(row.id),ref=doc(db,group.name,id),old=await getDoc(ref);
-        if(old.exists()){skipped++;continue;}
-        const payload={...row,id,criadoPor:window.mastersCurrentUser.uid,atualizadoEm:serverTimestamp(),atualizadoPor:window.mastersCurrentUser.uid};
+
+        // Bloqueia abastecimentos com o mesmo conteúdo,
+        // mesmo que tenham IDs diferentes.
+        if(group.name==="abastecimentos"){
+          const assinatura=assinaturaAbastecimento(row);
+
+          if(assinaturasFirebase.has(assinatura)){
+            duplicates++;
+            continue;
+          }
+
+          assinaturasFirebase.add(assinatura);
+        }
+
+        const id=String(row.id);
+        const ref=doc(db,group.name,id);
+        const old=await getDoc(ref);
+
+        if(old.exists()){
+          skipped++;
+          continue;
+        }
+
+        const payload={
+          ...row,
+          id,
+          criadoPor:window.mastersCurrentUser.uid,
+          atualizadoEm:serverTimestamp(),
+          atualizadoPor:window.mastersCurrentUser.uid
+        };
+
         if(group.name==="veiculos")delete payload.uid;
         else if(!payload.uid)payload.legado=true;
-        await setDoc(ref,payload);created++;
+
+        await setDoc(ref,payload);
+        created++;
       }
     }
-    if(status)status.textContent=`Migração concluída: ${created} enviados; ${skipped} já existentes preservados.`;
-  }catch(e){if(status)status.textContent="Falha na migração: "+(e.message||e);}
-  finally{if(send)send.disabled=false;}
+
+    if(status){
+      status.textContent=
+        `Migração concluída: ${created} enviados; `+
+        `${skipped} IDs já existentes; `+
+        `${duplicates} abastecimentos repetidos bloqueados.`;
+    }
+
+  }catch(e){
+    if(status)status.textContent=
+      "Falha na migração: "+(e.message||e);
+  }finally{
+    if(send)send.disabled=false;
+  }
 }
+
 async function syncFromCloud(silent = false) {
   const status = document.getElementById("cloud-status");
   const get = document.getElementById("cloud-get");
