@@ -352,6 +352,98 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+  // =====================================================
+// PROTEÇÃO CONTRA VIAGENS DUPLICADAS NO FIREBASE
+// =====================================================
+
+function normalizarCampoViagem(valor) {
+  return String(valor ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toUpperCase();
+}
+
+function assinaturaViagem(v) {
+  return [
+    String(v.vid || ''),
+    String(v.data || ''),
+    String(v.hS || ''),
+    String(v.hC || ''),
+    String(v.kmS ?? ''),
+    String(v.kmC ?? ''),
+    normalizarCampoViagem(v.od),
+    normalizarCampoViagem(v.mot),
+    normalizarCampoViagem(v.fin)
+  ].join('|');
+}
+
+async function gerarChaveViagem(v) {
+  const dados = new TextEncoder().encode(assinaturaViagem(v));
+  const hash = await crypto.subtle.digest('SHA-256', dados);
+
+  return Array.from(new Uint8Array(hash))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+async function mastersGravarViagemUnica(viagem) {
+  if (!viagem || !viagem.vid || !viagem.data) {
+    throw new Error('Viagem sem veículo ou data. Cadastro cancelado.');
+  }
+
+  const id = String(viagem.id || crypto.randomUUID());
+  const chave = await gerarChaveViagem(viagem);
+
+  const viagemRef = doc(db, 'viagens', id);
+  const chaveRef = doc(db, 'viagem_chaves', chave);
+
+  return await runTransaction(db, async tx => {
+    const chaveSnap = await tx.get(chaveRef);
+    const viagemSnap = await tx.get(viagemRef);
+
+    if (chaveSnap.exists()) {
+      return {
+        sucesso: true,
+        duplicada: true,
+        idExistente: chaveSnap.data().viagemId
+      };
+    }
+
+    if (viagemSnap.exists()) {
+      throw new Error('O ID desta viagem já existe no Firebase.');
+    }
+
+    const dados = {
+      ...viagem,
+      id,
+      chaveUnica: chave,
+      atualizadoEm: serverTimestamp(),
+      atualizadoPor: auth.currentUser.uid
+    };
+
+    tx.set(viagemRef, dados);
+
+    tx.set(chaveRef, {
+      viagemId: id,
+      vid: String(viagem.vid),
+      assinatura: chave,
+      criadoEm: serverTimestamp(),
+      criadoPor: auth.currentUser.uid
+    });
+
+    return {
+      sucesso: true,
+      duplicada: false,
+      id
+    };
+  });
+}
+
+// Disponibiliza a função para o script principal do aplicativo.
+window.mastersGravarViagemUnica = mastersGravarViagemUnica;
+window.mastersGerarChaveViagem = gerarChaveViagem;
 let mastersProfile = null;
 let reservationUnsub = null;
 let activeReservations = new Map();
