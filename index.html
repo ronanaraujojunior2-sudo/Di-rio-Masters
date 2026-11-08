@@ -1098,6 +1098,7 @@ function startLiveSync() {
     liveUnsubs.push(unsub);
   });
 }
+
 window.addEventListener("online", () => {
   if (
     liveReady &&
@@ -1129,6 +1130,49 @@ window.addEventListener("masters-local-save", () => {
 
     const live = document.getElementById("cloud-live");
 
+    const normalizar = v => String(v ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toUpperCase();
+
+    function assinaturaRegistro(group, registro) {
+      if (group.name === "abastecimentos") {
+        return JSON.stringify([
+          normalizar(registro.vid),
+          normalizar(registro.data),
+          normalizar(registro.hora),
+          normalizar(registro.km),
+          normalizar(registro.posto),
+          normalizar(registro.comb),
+          normalizar(registro.litros),
+          normalizar(registro.preco),
+          normalizar(registro.total),
+          normalizar(registro.mod),
+          normalizar(registro.tid),
+          normalizar(registro.obs)
+        ]);
+      }
+
+      const dados = { ...registro };
+
+      [
+        "id",
+        "uid",
+        "usuarioRegistro",
+        "criadoPor",
+        "criadoEm",
+        "atualizadoEm",
+        "atualizadoPor",
+        "sincronizadoEm",
+        "chaveUnica",
+        "legado"
+      ].forEach(campo => delete dados[campo]);
+
+      return stableCloudJSON(dados);
+    }
+
     try {
       let sent = 0;
       let blocked = 0;
@@ -1137,7 +1181,31 @@ window.addEventListener("masters-local-save", () => {
       for (const group of cloudCollections) {
         if (group.name === "veiculos" && !isAdmin()) continue;
 
-        const seenSemantic = new Set();
+        // Consulta o Firebase antes de enviar.
+        // A assinatura guarda o ID que já possui aquele conteúdo.
+        const semanticOwners = new Map();
+
+        if (
+          group.name === "viagens" ||
+          group.name === "abastecimentos"
+        ) {
+          for (const q of scopedQueries(group)) {
+            const snap = await getDocs(q);
+
+            snap.forEach(d => {
+              const registro = {
+                ...d.data(),
+                id: d.id
+              };
+
+              const assinatura = assinaturaRegistro(group, registro);
+
+              if (!semanticOwners.has(assinatura)) {
+                semanticOwners.set(assinatura, String(d.id));
+              }
+            });
+          }
+        }
 
         for (const row of (S[group.key] || [])) {
           if (!row.id) continue;
@@ -1162,6 +1230,27 @@ window.addEventListener("masters-local-save", () => {
 
           const id = String(row.id);
 
+          // Verifica se o conteúdo já está no Firebase
+          // com outro ID.
+          if (
+            group.name === "viagens" ||
+            group.name === "abastecimentos"
+          ) {
+            const assinatura = assinaturaRegistro(group, row);
+            const idExistente = semanticOwners.get(assinatura);
+
+            if (idExistente && idExistente !== id) {
+              duplicated++;
+              continue;
+            }
+
+            // Reserva a assinatura para evitar cópias locais
+            // durante esta mesma sincronização.
+            if (!idExistente) {
+              semanticOwners.set(assinatura, id);
+            }
+          }
+
           const payload = {
             ...row,
             id,
@@ -1181,45 +1270,28 @@ window.addEventListener("masters-local-save", () => {
               "";
           }
 
-          // Identifica cópias com IDs diferentes,
-          // ignorando campos de sincronização e autoria.
-          const semanticData = { ...payload };
-
-          [
-            "id",
-            "uid",
-            "usuarioRegistro",
-            "criadoPor",
-            "criadoEm",
-            "atualizadoEm",
-            "atualizadoPor",
-            "sincronizadoEm"
-          ].forEach(campo => delete semanticData[campo]);
-
-          const semanticKey = stableCloudJSON(semanticData);
-
-          if (
-            group.name === "viagens" ||
-            group.name === "abastecimentos"
-          ) {
-            if (seenSemantic.has(semanticKey)) {
-              duplicated++;
-              continue;
-            }
-
-            seenSemantic.add(semanticKey);
-          }
-
           const key = localKey(group.name, id);
           const comparable = stableCloudJSON(payload);
 
           if (lastCloudJSON.get(key) === comparable) continue;
 
-          await setDoc(
-            doc(db, group.name, id),
-            payload,
-            { merge: true }
-          );
+          // Confere se o mesmo ID já existe antes de gravar.
+          const ref = doc(db, group.name, id);
+          const old = await getDoc(ref);
+
+          if (old.exists()) {
+            lastCloudJSON.set(
+              key,
+              stableCloudJSON({
+                ...old.data(),
+                id
+              })
+            );
+
+            continue;
+          }
+
+          await setDoc(ref, payload);
 
           if (group.name === "veiculos") {
             cloudVehicleIds.add(id);
@@ -1274,7 +1346,7 @@ window.addEventListener("masters-local-save", () => {
             ? `${sent} alteração(ões) sincronizada(s).`
             : "Conectado: nenhuma alteração pendente.") +
           (duplicated
-            ? ` ${duplicated} cópia(s) não reenviada(s).`
+            ? ` ${duplicated} cópia(s) bloqueada(s).`
             : "") +
           (blocked
             ? ` ATENÇÃO: ${blocked} registro(s) com veículo inválido não foram enviados; peça ao MASTERS para rodar a auditoria de vínculos.`
@@ -1284,8 +1356,7 @@ window.addEventListener("masters-local-save", () => {
     } catch (e) {
       if (live) {
         live.textContent =
-          "Salvo neste aparelho; falha ao sincronizar: " +
-          (e.message || e);
+          "Falha ao sincronizar: " + (e.message || e);
       }
     } finally {
       liveWriting = false;
@@ -1293,6 +1364,7 @@ window.addEventListener("masters-local-save", () => {
 
   }, 900);
 });
+
 
 /*AUDIT-START*/
 function classificarVinculos(veics,regs,mapa,locais){
