@@ -352,6 +352,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+  // Impede que dados recebidos do Firebase sejam enviados novamente.
+let mastersRecebendoFirebase = false;
   // =====================================================
 // PROTEÇÃO CONTRA VIAGENS DUPLICADAS NO FIREBASE
 // =====================================================
@@ -608,88 +610,486 @@ function scopedQueries(group){
   const me=window.mastersCurrentUser.uid,vids=[...new Set((mastersProfile?.veiculosAutorizados||[]).map(String))];
   return[query(ref,where("uid","==",me)),...vids.map(v=>query(ref,where("vid","==",v)))];
 }
-function startLiveSync(){
+function startLiveSync() {
   stopLiveSync();
-  const live=document.getElementById("cloud-live");
-  if(!window.mastersCurrentUser){if(live)live.textContent="Entre para conectar.";return;}
-  let firstSnapshots=0;
-  const total=cloudCollections.reduce((n,g)=>n+scopedQueries(g).length,0);
-  for(const group of cloudCollections) for(const q of scopedQueries(group)){
-    const unsub=onSnapshot(q, snap=>{
-      const local=S[group.key]||[]; let changed=false;
-      snap.docChanges().forEach(change=>{
-        if(change.type==="removed"){
-          const rid=change.doc.id,ri=local.findIndex(x=>String(x.id)===String(rid));
-          lastCloudJSON.delete(localKey(group.name,rid));
-          if(ri>=0&&!pendingHas(group.name,rid)){local.splice(ri,1);changed=true;}
-          return;
-        }
-        const remote={...change.doc.data(),id:change.doc.id};
-        if(pendingHas(group.name,remote.id))return;
-        
-        lastCloudJSON.set(localKey(group.name,remote.id),stableCloudJSON(remote));
-        const idx=local.findIndex(x=>String(x.id)===String(remote.id));
-        if(idx<0){local.push(remote);changed=true;}
-        else if(change.type==="modified"||change.type==="added"){
-          if(JSON.stringify(local[idx])!==JSON.stringify(remote)){local[idx]=remote;changed=true;}
-        }
-      });
-      S[group.key]=local;if(group.name==="veiculos")cloudVehicleIds=new Set(snap.docs.map(d=>String(d.id)));
-      if(group.name==="veiculos"&&!vehiclesChecked&&!isAdmin()&&snap.docs.length>0){
-        vehiclesChecked=true;
-        const cloudIds=new Set(snap.docs.map(d=>String(d.id))),used=new Set([...(S.r||[]),...(S.ab||[])].map(x=>String(x.vid))),before=S.veics.length;
-        S.veics=S.veics.filter(v=>cloudIds.has(String(v.id))||used.has(String(v.id)));
-        if(!S.veics.some(v=>String(v.id)===String(S.ativo)))S.ativo=S.veics[0]?.id;
-        if(S.veics.length!==before)changed=true;
-      }
-      firstSnapshots++;
-      if(changed){window.__mastersApplyingCloud=true;try{save();sv();fillH();draw();prev();aclr();alist();}finally{window.__mastersApplyingCloud=false;}}
-      if(firstSnapshots>=total){liveReady=true;if(live)live.textContent="Conectado: dados autorizados atualizados em tempo real."+(!isAdmin()&&!(mastersProfile?.veiculosAutorizados||[]).length?" Atenção: nenhum veículo autorizado neste perfil; peça ao administrador.":"");window.dispatchEvent(new Event("masters-local-save"));}
-    },err=>{if(live)live.textContent="Falha na atualização: "+(err.message||err);});
-    liveUnsubs.push(unsub);
+
+  const live = document.getElementById("cloud-live");
+
+  if (!window.mastersCurrentUser) {
+    if (live) live.textContent = "Entre para conectar.";
+    return;
   }
-}
-window.addEventListener("online",()=>{ if(liveReady) window.dispatchEvent(new Event("masters-local-save")); });
-window.addEventListener("masters-local-save",()=>{
-  if(!liveReady||!window.mastersCurrentUser||liveWriting)return;
-  clearTimeout(liveWriteTimer);
-  liveWriteTimer=setTimeout(async()=>{
-    liveWriting=true; const live=document.getElementById("cloud-live");
-    try{
-      let sent=0,blocked=0;
-      for(const group of cloudCollections){
-        if(group.name==="veiculos"&&!isAdmin())continue;
-        for(const row of (S[group.key]||[])){
-          if(!row.id)continue;
-          if(group.name!=="veiculos"&&!cloudVehicleIds.has(String(row.vid))){blocked++;continue;}
-          if(group.name!=="veiculos"){
-            if(!row.uid&&!isAdmin())continue;
-            if(row.uid&&row.uid!==window.mastersCurrentUser.uid&&!isAdmin())continue;
+
+  // Identifica registros semanticamente iguais,
+  // mesmo quando possuem IDs diferentes.
+  function assinaturaRegistroCloud(registro) {
+    const dados = { ...registro };
+
+    [
+      "id",
+      "uid",
+      "usuarioRegistro",
+      "criadoPor",
+      "criadoEm",
+      "atualizadoEm",
+      "atualizadoPor",
+      "sincronizadoEm",
+      "chaveUnica",
+      "legado"
+    ].forEach(campo => delete dados[campo]);
+
+    return stableCloudJSON(dados);
+  }
+
+  // Remove duplicações locais sem excluir dados do Firebase.
+  function removerDuplicadosLocais(lista, nomeColecao) {
+    if (
+      nomeColecao !== "viagens" &&
+      nomeColecao !== "abastecimentos"
+    ) return lista;
+
+    const encontrados = new Set();
+
+    return lista.filter(registro => {
+      const assinatura = assinaturaRegistroCloud(registro);
+
+      if (encontrados.has(assinatura)) return false;
+
+      encontrados.add(assinatura);
+      return true;
+    });
+  }
+
+  const consultas = [];
+
+  for (const group of cloudCollections) {
+    for (const q of scopedQueries(group)) {
+      consultas.push({ group, q });
+    }
+  }
+
+  let firstSnapshots = 0;
+  const initialSnapshotsSeen = new Set();
+  const total = consultas.length;
+
+  if (total === 0) {
+    liveReady = true;
+    if (live) live.textContent = "Conectado.";
+    return;
+  }
+
+  consultas.forEach(({ group, q }, queryIndex) => {
+
+    const unsub = onSnapshot(
+      q,
+
+      snap => {
+        let local = S[group.key] || [];
+        let changed = false;
+
+        const semanticKeys = new Set();
+
+        // Limpa cópias que já estavam no telefone.
+        const tamanhoAnterior = local.length;
+
+        local = removerDuplicadosLocais(local, group.name);
+
+        if (local.length !== tamanhoAnterior) {
+          changed = true;
+        }
+
+        // Registra as assinaturas já existentes.
+        if (
+          group.name === "viagens" ||
+          group.name === "abastecimentos"
+        ) {
+          local.forEach(registro => {
+            semanticKeys.add(
+              assinaturaRegistroCloud(registro)
+            );
+          });
+        }
+
+        snap.docChanges().forEach(change => {
+
+          const rid = String(change.doc.id);
+
+          if (change.type === "removed") {
+            const ri = local.findIndex(
+              x => String(x.id) === rid
+            );
+
+            lastCloudJSON.delete(
+              localKey(group.name, rid)
+            );
+
+            if (ri >= 0 && !pendingHas(group.name, rid)) {
+              local.splice(ri, 1);
+              changed = true;
+            }
+
+            return;
           }
-          const id=String(row.id),key=localKey(group.name,id),payload={...row,id,atualizadoEm:serverTimestamp(),atualizadoPor:window.mastersCurrentUser.uid};
-          if(group.name==="veiculos") { delete payload.uid; }
-          else if(!payload.uid) { payload.legado=true; delete payload.uid; }
-          else payload.usuarioRegistro=payload.usuarioRegistro||mastersProfile?.usuario||"";
-          const comparable=stableCloudJSON(payload);
-          if(lastCloudJSON.get(key)===comparable)continue;
-          await setDoc(doc(db,group.name,id),payload,{merge:true});if(group.name==="veiculos")cloudVehicleIds.add(id);
-          lastCloudJSON.set(key,comparable);sent++;
+
+          const remote = {
+            ...change.doc.data(),
+            id: rid
+          };
+
+          if (pendingHas(group.name, remote.id)) return;
+
+          lastCloudJSON.set(
+            localKey(group.name, remote.id),
+            stableCloudJSON(remote)
+          );
+
+          // Primeiro verifica se o ID já existe.
+          const idx = local.findIndex(
+            x => String(x.id) === rid
+          );
+
+          if (idx >= 0) {
+            if (
+              change.type === "modified" ||
+              change.type === "added"
+            ) {
+              if (
+                stableCloudJSON(local[idx]) !==
+                stableCloudJSON(remote)
+              ) {
+                local[idx] = remote;
+                changed = true;
+              }
+            }
+
+            return;
+          }
+
+          // Depois verifica se o conteúdo já existe
+          // com outro ID.
+          if (
+            group.name === "viagens" ||
+            group.name === "abastecimentos"
+          ) {
+            const assinatura =
+              assinaturaRegistroCloud(remote);
+
+            if (semanticKeys.has(assinatura)) {
+              return;
+            }
+
+            semanticKeys.add(assinatura);
+          }
+
+          local.push(remote);
+          changed = true;
+        });
+
+        S[group.key] = local;
+
+        if (group.name === "veiculos") {
+          cloudVehicleIds = new Set(
+            snap.docs.map(d => String(d.id))
+          );
+        }
+
+        if (
+          group.name === "veiculos" &&
+          !vehiclesChecked &&
+          !isAdmin() &&
+          snap.docs.length > 0
+        ) {
+          vehiclesChecked = true;
+
+          const cloudIds = new Set(
+            snap.docs.map(d => String(d.id))
+          );
+
+          const used = new Set([
+            ...(S.r || []),
+            ...(S.ab || [])
+          ].map(x => String(x.vid)));
+
+          const before = S.veics.length;
+
+          S.veics = S.veics.filter(v =>
+            cloudIds.has(String(v.id)) ||
+            used.has(String(v.id))
+          );
+
+          if (
+            !S.veics.some(
+              v => String(v.id) === String(S.ativo)
+            )
+          ) {
+            S.ativo = S.veics[0]?.id;
+          }
+
+          if (S.veics.length !== before) {
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          window.__mastersApplyingCloud = true;
+
+          if (
+            typeof mastersRecebendoFirebase !== "undefined"
+          ) {
+            mastersRecebendoFirebase = true;
+          }
+
+          try {
+            save();
+            sv();
+            fillH();
+            draw();
+            prev();
+            aclr();
+            alist();
+          } finally {
+            window.__mastersApplyingCloud = false;
+
+            if (
+              typeof mastersRecebendoFirebase !== "undefined"
+            ) {
+              mastersRecebendoFirebase = false;
+            }
+          }
+        }
+
+        // Conta somente o primeiro snapshot de cada consulta.
+        if (!initialSnapshotsSeen.has(queryIndex)) {
+          initialSnapshotsSeen.add(queryIndex);
+          firstSnapshots++;
+        }
+
+        if (firstSnapshots >= total) {
+          liveReady = true;
+
+          if (live) {
+            live.textContent =
+              "Conectado: dados autorizados atualizados em tempo real." +
+              (
+                !isAdmin() &&
+                !(mastersProfile?.veiculosAutorizados || []).length
+                  ? " Atenção: nenhum veículo autorizado neste perfil; peça ao administrador."
+                  : ""
+              );
+          }
+
+          // IMPORTANTE:
+          // Não enviar os dados locais automaticamente
+          // depois de receber os snapshots do Firebase.
+        }
+      },
+
+      err => {
+        if (live) {
+          live.textContent =
+            "Falha na atualização: " +
+            (err.message || err);
         }
       }
-      const queue=S.__pendingDeletes||[]; const remaining=[];
-      for(const item of queue){
-        try{
-          if(!isAdmin() && item.collection!=='viagens' && item.collection!=='abastecimentos') { remaining.push(item); continue; }
-          if(!lastCloudJSON.has(localKey(item.collection,String(item.id)))){continue;}
-          await deleteDoc(doc(db,item.collection,String(item.id)));
-          lastCloudJSON.delete(localKey(item.collection,String(item.id))); sent++;
-        }catch(err){ remaining.push(item); }
+    );
+
+    liveUnsubs.push(unsub);
+  });
+}
+window.addEventListener("online", () => {
+  if (
+    liveReady &&
+    window.mastersCurrentUser &&
+    !(typeof mastersRecebendoFirebase !== "undefined" && mastersRecebendoFirebase)
+  ) {
+    window.dispatchEvent(new Event("masters-local-save"));
+  }
+});
+
+window.addEventListener("masters-local-save", () => {
+  if (
+    !liveReady ||
+    !window.mastersCurrentUser ||
+    liveWriting ||
+    (typeof mastersRecebendoFirebase !== "undefined" && mastersRecebendoFirebase)
+  ) return;
+
+  clearTimeout(liveWriteTimer);
+
+  liveWriteTimer = setTimeout(async () => {
+    if (
+      !liveReady ||
+      !window.mastersCurrentUser ||
+      (typeof mastersRecebendoFirebase !== "undefined" && mastersRecebendoFirebase)
+    ) return;
+
+    liveWriting = true;
+
+    const live = document.getElementById("cloud-live");
+
+    try {
+      let sent = 0;
+      let blocked = 0;
+      let duplicated = 0;
+
+      for (const group of cloudCollections) {
+        if (group.name === "veiculos" && !isAdmin()) continue;
+
+        const seenSemantic = new Set();
+
+        for (const row of (S[group.key] || [])) {
+          if (!row.id) continue;
+
+          if (
+            group.name !== "veiculos" &&
+            !cloudVehicleIds.has(String(row.vid))
+          ) {
+            blocked++;
+            continue;
+          }
+
+          if (group.name !== "veiculos") {
+            if (!row.uid && !isAdmin()) continue;
+
+            if (
+              row.uid &&
+              row.uid !== window.mastersCurrentUser.uid &&
+              !isAdmin()
+            ) continue;
+          }
+
+          const id = String(row.id);
+
+          const payload = {
+            ...row,
+            id,
+            atualizadoEm: serverTimestamp(),
+            atualizadoPor: window.mastersCurrentUser.uid
+          };
+
+          if (group.name === "veiculos") {
+            delete payload.uid;
+          } else if (!payload.uid) {
+            payload.legado = true;
+            delete payload.uid;
+          } else {
+            payload.usuarioRegistro =
+              payload.usuarioRegistro ||
+              mastersProfile?.usuario ||
+              "";
+          }
+
+          // Identifica cópias com IDs diferentes,
+          // ignorando campos de sincronização e autoria.
+          const semanticData = { ...payload };
+
+          [
+            "id",
+            "uid",
+            "usuarioRegistro",
+            "criadoPor",
+            "criadoEm",
+            "atualizadoEm",
+            "atualizadoPor",
+            "sincronizadoEm"
+          ].forEach(campo => delete semanticData[campo]);
+
+          const semanticKey = stableCloudJSON(semanticData);
+
+          if (
+            group.name === "viagens" ||
+            group.name === "abastecimentos"
+          ) {
+            if (seenSemantic.has(semanticKey)) {
+              duplicated++;
+              continue;
+            }
+
+            seenSemantic.add(semanticKey);
+          }
+
+          const key = localKey(group.name, id);
+          const comparable = stableCloudJSON(payload);
+
+          if (lastCloudJSON.get(key) === comparable) continue;
+
+          await setDoc(
+            doc(db, group.name, id),
+            payload,
+            { merge: true }
+          );
+
+          if (group.name === "veiculos") {
+            cloudVehicleIds.add(id);
+          }
+
+          lastCloudJSON.set(key, comparable);
+          sent++;
+        }
       }
-      S.__pendingDeletes=remaining;
-      if(live)live.textContent=(sent?`${sent} alteração(ões) sincronizada(s).`:"Conectado: nenhuma alteração pendente.")+(blocked?` ATENÇÃO: ${blocked} registro(s) com veículo inválido não foram enviados; peça ao MASTERS para rodar a auditoria de vínculos.`:"");
-    }catch(e){if(live)live.textContent="Salvo neste aparelho; falha ao sincronizar: "+(e.message||e);}
-    finally{liveWriting=false;}
-  },900);
+
+      const queue = S.__pendingDeletes || [];
+      const remaining = [];
+
+      for (const item of queue) {
+        try {
+          if (
+            !isAdmin() &&
+            item.collection !== "viagens" &&
+            item.collection !== "abastecimentos"
+          ) {
+            remaining.push(item);
+            continue;
+          }
+
+          if (
+            !lastCloudJSON.has(
+              localKey(item.collection, String(item.id))
+            )
+          ) {
+            continue;
+          }
+
+          await deleteDoc(
+            doc(db, item.collection, String(item.id))
+          );
+
+          lastCloudJSON.delete(
+            localKey(item.collection, String(item.id))
+          );
+
+          sent++;
+        } catch (err) {
+          remaining.push(item);
+        }
+      }
+
+      S.__pendingDeletes = remaining;
+
+      if (live) {
+        live.textContent =
+          (sent
+            ? `${sent} alteração(ões) sincronizada(s).`
+            : "Conectado: nenhuma alteração pendente.") +
+          (duplicated
+            ? ` ${duplicated} cópia(s) não reenviada(s).`
+            : "") +
+          (blocked
+            ? ` ATENÇÃO: ${blocked} registro(s) com veículo inválido não foram enviados; peça ao MASTERS para rodar a auditoria de vínculos.`
+            : "");
+      }
+
+    } catch (e) {
+      if (live) {
+        live.textContent =
+          "Salvo neste aparelho; falha ao sincronizar: " +
+          (e.message || e);
+      }
+    } finally {
+      liveWriting = false;
+    }
+
+  }, 900);
 });
 
 /*AUDIT-START*/
@@ -825,23 +1225,181 @@ async function syncToCloud(){
   }catch(e){if(status)status.textContent="Falha na migração: "+(e.message||e);}
   finally{if(send)send.disabled=false;}
 }
-async function syncFromCloud(silent=false){
-  const status=document.getElementById("cloud-status"),get=document.getElementById("cloud-get");
-  if(get)get.disabled=true;if(!silent&&status)status.textContent="Atualizando registros autorizados…";
-  try{
-    let added=0;
-    for(const group of cloudCollections){
-      const local=S[group.key]||[],ids=new Set(local.map(x=>String(x.id)));
-      for(const q of scopedQueries(group)){const snap=await getDocs(q);snap.forEach(d=>{if(!ids.has(String(d.id))){local.push({...d.data(),id:d.id});ids.add(String(d.id));added++;}});}
-      S[group.key]=local;
-    }
-    if(!S.ativo&&S.veics.length)S.ativo=S.veics[0].id;
-    window.__mastersApplyingCloud=true;try{save();sv();fillH();draw();prev();alist();}finally{window.__mastersApplyingCloud=false;}
-    if(status)status.textContent=`Atualização concluída: ${added} novo(s) registro(s).`;
-  }catch(e){if(status)status.textContent="Falha ao atualizar: "+(e.message||e);}
-  finally{if(get)get.disabled=false;}
-}
+async function syncFromCloud(silent = false) {
+  const status = document.getElementById("cloud-status");
+  const get = document.getElementById("cloud-get");
 
+  if (get) get.disabled = true;
+
+  if (!silent && status) {
+    status.textContent = "Atualizando registros autorizados…";
+  }
+
+  // Identifica registros iguais mesmo com IDs diferentes.
+  function assinaturaRegistroCloud(registro) {
+    const dados = { ...registro };
+
+    [
+      "id",
+      "uid",
+      "usuarioRegistro",
+      "criadoPor",
+      "criadoEm",
+      "atualizadoEm",
+      "atualizadoPor",
+      "sincronizadoEm",
+      "chaveUnica",
+      "legado"
+    ].forEach(campo => delete dados[campo]);
+
+    return stableCloudJSON(dados);
+  }
+
+  function removerDuplicados(lista, nomeColecao) {
+    if (
+      nomeColecao !== "viagens" &&
+      nomeColecao !== "abastecimentos"
+    ) return lista;
+
+    const vistos = new Set();
+
+    return lista.filter(registro => {
+      const assinatura = assinaturaRegistroCloud(registro);
+
+      if (vistos.has(assinatura)) return false;
+
+      vistos.add(assinatura);
+      return true;
+    });
+  }
+
+  try {
+    let added = 0;
+    let ignoredDuplicates = 0;
+
+    for (const group of cloudCollections) {
+      let local = S[group.key] || [];
+
+      // Remove duplicações que já estavam no aparelho.
+      const before = local.length;
+
+      local = removerDuplicados(local, group.name);
+
+      if (local.length < before) {
+        ignoredDuplicates += before - local.length;
+      }
+
+      const ids = new Set(
+        local.map(x => String(x.id))
+      );
+
+      const assinaturas = new Set();
+
+      if (
+        group.name === "viagens" ||
+        group.name === "abastecimentos"
+      ) {
+        local.forEach(registro => {
+          assinaturas.add(
+            assinaturaRegistroCloud(registro)
+          );
+        });
+      }
+
+      for (const q of scopedQueries(group)) {
+        const snap = await getDocs(q);
+
+        snap.forEach(d => {
+          const remote = {
+            ...d.data(),
+            id: d.id
+          };
+
+          const id = String(remote.id);
+
+          // Mesmo documento: não importar novamente.
+          if (ids.has(id)) return;
+
+          // Mesmo conteúdo com outro ID: não duplicar.
+          if (
+            group.name === "viagens" ||
+            group.name === "abastecimentos"
+          ) {
+            const assinatura =
+              assinaturaRegistroCloud(remote);
+
+            if (assinaturas.has(assinatura)) {
+              ignoredDuplicates++;
+              return;
+            }
+
+            assinaturas.add(assinatura);
+          }
+
+          local.push(remote);
+          ids.add(id);
+          added++;
+
+          lastCloudJSON.set(
+            localKey(group.name, id),
+            stableCloudJSON(remote)
+          );
+        });
+      }
+
+      S[group.key] = local;
+    }
+
+    if (!S.ativo && S.veics.length) {
+      S.ativo = S.veics[0].id;
+    }
+
+    // Impede que a atualização remota dispare
+    // uma nova gravação automática no Firebase.
+    window.__mastersApplyingCloud = true;
+
+    if (
+      typeof mastersRecebendoFirebase !== "undefined"
+    ) {
+      mastersRecebendoFirebase = true;
+    }
+
+    try {
+      save();
+      sv();
+      fillH();
+      draw();
+      prev();
+      alist();
+    } finally {
+      window.__mastersApplyingCloud = false;
+
+      if (
+        typeof mastersRecebendoFirebase !== "undefined"
+      ) {
+        mastersRecebendoFirebase = false;
+      }
+    }
+
+    if (status) {
+      status.textContent =
+        `Atualização concluída: ${added} novo(s) registro(s).` +
+        (
+          ignoredDuplicates
+            ? ` ${ignoredDuplicates} duplicação(ões) ignorada(s).`
+            : ""
+        );
+    }
+
+  } catch (e) {
+    if (status) {
+      status.textContent =
+        "Falha ao atualizar: " + (e.message || e);
+    }
+  } finally {
+    if (get) get.disabled = false;
+  }
+}
 exitBtn.addEventListener("click", async () => {
   stopLiveSync();
   await signOut(auth);
