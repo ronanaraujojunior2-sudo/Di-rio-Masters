@@ -862,190 +862,59 @@ function startLiveSync() {
     });
   }
 
-  const consultas = [];
-
-  for (const group of cloudCollections) {
-    for (const q of scopedQueries(group)) {
-      consultas.push({ group, q });
-    }
-  }
-
-  let firstSnapshots = 0;
-  let initialSyncSent = false;
-  const initialSnapshotsSeen = new Set();
-  const total = consultas.length;
-
-  if (total === 0) {
-    liveReady = true;
-    if (live) live.textContent = "Conectado.";
-    return;
-  }
-
-  consultas.forEach(({ group, q }, queryIndex) => {
-
-    const unsub = onSnapshot(
-      q,
-
-      snap => {
-        let local = S[group.key] || [];
-        let changed = false;
-
-        const semanticKeys = new Set();
-
-        // Limpa cópias que já estavam no telefone.
-        const tamanhoAnterior = local.length;
-
-        local = removerDuplicadosLocais(local, group.name);
-
-        if (local.length !== tamanhoAnterior) {
-          changed = true;
-        }
-
-        // Registra as assinaturas já existentes.
-        if (
-          group.name === "viagens" ||
-          group.name === "abastecimentos"
-        ) {
-          local.forEach(registro => {
-            semanticKeys.add(
-              assinaturaRegistroCloud(registro)
-            );
-          });
-        }
-
-        snap.docChanges().forEach(change => {
-
-          const rid = String(change.doc.id);
-
-          if (change.type === "removed") {
-            const ri = local.findIndex(
-              x => String(x.id) === rid
-            );
-
-            lastCloudJSON.delete(
-              localKey(group.name, rid)
-            );
-
-            if (ri >= 0 && !pendingHas(group.name, rid)) {
-              local.splice(ri, 1);
-              changed = true;
-            }
-
-            return;
-          }
-
-          const remote = {
-            ...change.doc.data(),
-            id: rid
-          };
-
-          if (pendingHas(group.name, remote.id)) return;
-
-          lastCloudJSON.set(
-            localKey(group.name, remote.id),
-            stableCloudJSON(remote)
-          );
-
-          // Primeiro verifica se o ID já existe.
-          const idx = local.findIndex(
-            x => String(x.id) === rid
-          );
-
-          if (idx >= 0) {
-            if (
-              change.type === "modified" ||
-              change.type === "added"
-            ) {
-              if (
-                stableCloudJSON(local[idx]) !==
-                stableCloudJSON(remote)
-              ) {
-                local[idx] = remote;
-                changed = true;
-              }
-            }
-
-            return;
-          }
-
-          // Depois verifica se o conteúdo já existe
-          // com outro ID.
-          if (
-            group.name === "viagens" ||
-            group.name === "abastecimentos"
-          ) {
-            const assinatura =
-              assinaturaRegistroCloud(remote);
-
-            if (semanticKeys.has(assinatura)) {
-              return;
-            }
-
-            semanticKeys.add(assinatura);
-          }
-
-          local.push(remote);
-          changed = true;
-        });
-
-        S[group.key] = local;
-
-        if (group.name === "veiculos") {
-          cloudVehicleIds = new Set(
-            snap.docs.map(d => String(d.id))
-          );
-        }
-
-        if (
-          group.name === "veiculos" &&
-          !vehiclesChecked &&
-          !isAdmin() &&
-          snap.docs.length > 0
-        ) {
-          vehiclesChecked = true;
-
-          const cloudIds = new Set(
-            snap.docs.map(d => String(d.id))
-          );
-
-          const used = new Set([
-            ...(S.r || []),
-            ...(S.ab || [])
-          ].map(x => String(x.vid)));
-
-          const before = S.veics.length;
-
-          S.veics = S.veics.filter(v =>
-            cloudIds.has(String(v.id)) ||
-            used.has(String(v.id))
-          );
-
-          if (
-            !S.veics.some(
-              v => String(v.id) === String(S.ativo)
-            )
-          ) {
-            S.ativo = S.veics[0]?.id;
-          }
-
-          if (S.veics.length !== before) {
-            changed = true;
-          }
+         // Conta somente o primeiro snapshot de cada consulta.
+        if (!initialSnapshotsSeen.has(queryIndex)) {
+          initialSnapshotsSeen.add(queryIndex);
+          firstSnapshots++;
         }
 
         if (firstSnapshots >= total) {
-  liveReady = true;
+          liveReady = true;
 
-  if (live) {
-    live.textContent =
-      "Conectado: dados autorizados atualizados em tempo real." +
-      (
-        !isAdmin() &&
-        !(mastersProfile?.veiculosAutorizados || []).length
-          ? " Atenção: nenhum veículo autorizado neste perfil; peça ao administrador."
-          : ""
-      );
-  }
+          if (live) {
+            live.textContent =
+              "Conectado: dados autorizados atualizados em tempo real." +
+              (
+                !isAdmin() &&
+                !(mastersProfile?.veiculosAutorizados || []).length
+                  ? " Atenção: nenhum veículo autorizado neste perfil; peça ao administrador."
+                  : ""
+              );
+          }
+
+          // Envia os registros locais após carregar os dados do Firebase.
+          if (!initialSyncSent) {
+            initialSyncSent = true;
+
+            setTimeout(() => {
+              if (
+                liveReady &&
+                window.mastersCurrentUser &&
+                !(typeof mastersRecebendoFirebase !== "undefined" &&
+                  mastersRecebendoFirebase)
+              ) {
+                window.dispatchEvent(
+                  new Event("masters-local-save")
+                );
+              }
+            }, 500);
+          }
+        }
+      },
+      error => {
+        console.error("Erro na sincronização em tempo real:", error);
+
+        if (live) {
+          live.textContent =
+            "Falha na sincronização: " +
+            (error.message || error);
+        }
+      }
+    );
+
+    liveUnsubs.push(unsub);
+  });
+}
 
   // Tenta enviar registros locais após carregar o Firebase.
   if (!initialSyncSent) {
