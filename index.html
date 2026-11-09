@@ -355,7 +355,13 @@ const db = getFirestore(app);
 let mastersProfile = null;
 let reservationUnsub = null;
 let activeReservations = new Map();
-const isAdmin = () => mastersProfile?.perfil === "administrador" && window.mastersProfile?.usuario === "MASTERS";
+const isAdmin = () => {
+  const perfil = String(mastersProfile?.perfil || "").trim().toLowerCase();
+  const usuario = String(mastersProfile?.usuario || "").trim().toUpperCase();
+
+  return perfil === "administrador" &&
+    ["MASTERS", "RONAN"].includes(usuario);
+};
 // Ponte explícita entre o módulo Firebase e o script principal do aplicativo.
 Object.defineProperty(window, "mastersCurrentUser", { configurable:true, get:()=>auth.currentUser });
 Object.defineProperty(window, "mastersProfile", { configurable:true, get:()=>mastersProfile });
