@@ -671,17 +671,157 @@ function installMigrationPanel(){
     try{await setDoc(doc(db,'auditoria',mid),{tipo:'migracao-vinculo-veiculo',executadoPor:me,usuario:mastersProfile?.usuario||'',em:serverTimestamp(),corrigidos:feitos,previstos:L.length,manuais:m.rep.manual.length,jaCorretos:m.rep.ok,mapeamentoManual:m.mapa,backupBaixado:true,concluida:!erro&&feitos===L.length,erro})}catch(e){erro+=' | auditoria: '+(e.message||e)}
     out.textContent=erro?`INTERROMPIDA após ${feitos}/${L.length}. Erro: ${erro}\nO que foi gravado está na auditoria ${mid}. Rode a auditoria de novo para continuar.`:`Concluído: ${feitos} corrigido(s); ${m.rep.manual.length} exigem conferência manual. Auditoria: ${mid}.`;migEstado=null;};
 }
+
 function installReservationPanel(){
   if(document.getElementById('reservation-panel')) return;
-  const panel=document.createElement('section'); panel.id='reservation-panel';
+
+  const panel=document.createElement('section');
+  panel.id='reservation-panel';
   panel.style.cssText='max-width:900px;margin:12px auto;padding:14px;background:#fff;border:1px solid #d6d9e8;border-radius:10px';
-  panel.innerHTML=`<b>Controle de utilização do veículo</b><p id="reservation-state" style="font-size:13px;margin:8px 0">Consultando disponibilidade…</p><div class="bar"><button id="reserve-current" type="button">Assumir este veículo</button><button id="release-current" class="s" type="button">Liberar meu veículo</button></div><div id="admin-reservations" hidden style="margin-top:12px"><b>Reservas ativas — administração MASTERS</b><div id="admin-reservation-list" class="hint"></div></div>`;
+
+  panel.innerHTML=`
+    <b>Controle de utilização do veículo</b>
+    <p id="reservation-state" style="font-size:13px;margin:8px 0">Consultando disponibilidade…</p>
+    <div class="bar">
+      <button id="reserve-current" type="button">Assumir este veículo</button>
+      <button id="release-current" class="s" type="button">Liberar meu veículo</button>
+    </div>
+
+    <div id="admin-reservations" hidden style="margin-top:12px">
+      <b>Reservas ativas — administração</b>
+      <div id="admin-reservation-list" class="hint"></div>
+    </div>
+
+    <div id="default-vehicle-admin" hidden style="margin-top:18px;padding-top:14px;border-top:1px solid #ddd">
+      <b>Veículo principal dos funcionários</b>
+      <p style="font-size:13px">Defina o veículo que aparecerá inicialmente para cada funcionário.</p>
+
+      <label for="default-user">Funcionário</label>
+      <select id="default-user" style="width:100%;margin:6px 0 12px"></select>
+
+      <label for="default-vehicle">Veículo principal</label>
+      <select id="default-vehicle" style="width:100%;margin:6px 0 12px"></select>
+
+      <button id="save-default-vehicle" type="button">Salvar veículo principal</button>
+      <p id="default-vehicle-status" style="font-size:13px"></p>
+    </div>
+  `;
+
   document.body.insertBefore(panel,document.querySelector('main'));
+
   document.getElementById('reserve-current').onclick=reserveCurrentVehicle;
   document.getElementById('release-current').onclick=()=>releaseCurrentVehicle(false);
-  if(isAdmin()) document.getElementById('admin-reservations').hidden=false;
+
+  if(isAdmin()){
+    document.getElementById('admin-reservations').hidden=false;
+    document.getElementById('default-vehicle-admin').hidden=false;
+    loadDefaultVehicleAdmin();document.getElementById('save-default-vehicle').onclick=saveDefaultVehicleAdmin;
+  }
+
   renderReservations();
 }
+
+
+async function loadDefaultVehicleAdmin(){
+  const userSelect=document.getElementById('default-user');
+  const vehicleSelect=document.getElementById('default-vehicle');
+  const status=document.getElementById('default-vehicle-status');
+
+  if(!userSelect||!vehicleSelect)return;
+
+  try{
+    status.textContent='Carregando funcionários e veículos…';
+
+    const [usersSnap,vehiclesSnap]=await Promise.all([
+      getDocs(collection(db,'usuarios')),
+      getDocs(collection(db,'veiculos'))
+    ]);
+
+    const users=usersSnap.docs.map(d=>({
+      id:d.id,
+      ...d.data()
+    }));
+
+    const vehicles=vehiclesSnap.docs.map(d=>({
+      id:d.id,
+      ...d.data()
+    }));
+
+    window.__mastersDefaultVehicleUsers=users;
+    window.__mastersDefaultVehicleList=vehicles;
+
+    userSelect.innerHTML='<option value="">Selecione o funcionário</option>'+
+      users.map(u=>
+        `<option value="${esc(u.id)}">${esc(u.usuario||u.email||u.id)}</option>`
+      ).join('');
+
+    vehicleSelect.innerHTML='<option value="">Selecione o veículo</option>'+
+      vehicles.map(v=>
+        `<option value="${esc(v.id)}">${esc(v.veiculo||v.modelo||v.id)} — ${esc(v.placa||'Sem placa')}</option>`
+      ).join('');
+
+    userSelect.onchange=()=>{
+      const user=users.find(u=>u.id===userSelect.value);
+      vehicleSelect.value=user?.veiculoPadraoId||'';
+    };
+
+    status.textContent=`${users.length} funcionário(s) e ${vehicles.length} veículo(s) carregados.`;
+
+  }catch(e){
+    status.textContent='Erro ao carregar dados: '+(e.message||e);
+  }
+}
+
+
+async function saveDefaultVehicleAdmin(){
+  const userSelect=document.getElementById('default-user');
+  const vehicleSelect=document.getElementById('default-vehicle');
+  const status=document.getElementById('default-vehicle-status');
+  const button=document.getElementById('save-default-vehicle');
+
+  const userId=userSelect?.value;
+  const vehicleId=vehicleSelect?.value;
+
+  if(!userId||!vehicleId){
+    status.textContent='Selecione o funcionário e o veículo.';
+    return;
+  }
+
+  const user=window.__mastersDefaultVehicleUsers?.find(u=>u.id===userId);
+  const vehicle=window.__mastersDefaultVehicleList?.find(v=>v.id===vehicleId);
+
+  if(!user||!vehicle){
+    status.textContent='Funcionário ou veículo não encontrado.';
+    return;
+  }
+
+  button.disabled=true;
+  status.textContent='Salvando configuração…';
+
+  try{
+    await setDoc(
+      doc(db,'usuarios',userId),
+      {
+        veiculoPadraoId:vehicleId,
+        veiculoPadraoNome:vehicle.veiculo||vehicle.modelo||'',
+        atualizadoEm:serverTimestamp(),
+        atualizadoPor:window.mastersCurrentUser.uid
+      },
+      {merge:true}
+    );
+
+    user.veiculoPadraoId=vehicleId;
+    user.veiculoPadraoNome=vehicle.veiculo||vehicle.modelo||'';
+
+    status.textContent=`Veículo principal de ${user.usuario||'funcionário'} salvo com sucesso.`;
+
+  }catch(e){
+    status.textContent='Erro ao salvar: '+(e.message||e);
+  }finally{
+    button.disabled=false;
+  }
+}
+
 function startReservationWatch(){
   if(reservationUnsub) reservationUnsub();
   reservationUnsub=onSnapshot(window.mastersCollection('reservas'),snap=>{
@@ -786,6 +926,7 @@ async function syncToCloud(){
 }
 
 
+
 async function syncFromCloud(silent=false){
   const status=document.getElementById("cloud-status");
   const get=document.getElementById("cloud-get");
@@ -815,33 +956,17 @@ async function syncFromCloud(silent=false){
       S[group.key]=local;
     }
 
-    // Identifica o veículo inicial do usuário autenticado.
+    // Seleciona o veículo principal definido pelo administrador.
     const uid=window.mastersCurrentUser?.uid;
-    const usuario=normalizeLoginName(
-      window.mastersProfile?.usuario||""
-    );
-
-    const placasPorUsuario={
-      RONAN:"TYD5C39",
-      ECCLESTONBRITO:"QZH4A95",
-      VALDINEITEIXEIRA:"QZY5H82"
-    };
+    const perfil=window.mastersProfile;
+    const veiculoPadraoId=String(perfil?.veiculoPadraoId||"");
 
     if(uid&&window.__mastersInitialVehicleUser!==uid){
 
-      const placa=placasPorUsuario[usuario];
-
-      if(placa){
-
-        const normalizarPlaca=valor=>
-          String(valor||"")
-            .replace(/[^A-Z0-9]/gi,"")
-            .toUpperCase();
+      if(veiculoPadraoId){
 
         const veiculoInicial=S.veics.find(v=>
-          normalizarPlaca(v.placa)===placa||
-          normalizarPlaca(v.veiculo).includes(placa)||
-          normalizarPlaca(v.modelo).includes(placa)
+          String(v.id)===veiculoPadraoId
         );
 
         if(veiculoInicial){
@@ -849,16 +974,14 @@ async function syncFromCloud(silent=false){
           window.__mastersInitialVehicleUser=uid;
         }else{
           console.warn(
-            "Veículo inicial não encontrado:",
-            usuario,
-            placa,
-            S.veics
+            "Veículo principal não encontrado na lista:",
+            veiculoPadraoId
           );
         }
       }
     }
 
-    // Alternativa somente quando não existe veículo selecionado.
+    // Alternativa caso ainda não exista veículo selecionado.
     if(!S.ativo&&S.veics.length){
       S.ativo=S.veics[0].id;
     }
@@ -884,12 +1007,14 @@ async function syncFromCloud(silent=false){
     if(status){
       status.textContent="Falha ao atualizar: "+(e.message||e);
     }
+
     console.error("Erro na sincronização:",e);
 
   }finally{
     if(get)get.disabled=false;
   }
 }
+
 
 
 exitBtn.addEventListener("click", async () => {
