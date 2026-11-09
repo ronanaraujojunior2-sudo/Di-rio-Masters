@@ -537,43 +537,216 @@ function scopedQueries(group){
 }
 function startLiveSync(){
   stopLiveSync();
+
   const live=document.getElementById("cloud-live");
-  if(!window.mastersCurrentUser){if(live)live.textContent="Entre para conectar.";return;}
+
+  if(!window.mastersCurrentUser){
+    if(live)live.textContent="Entre para conectar.";
+    return;
+  }
+
   let firstSnapshots=0;
-  const total=cloudCollections.reduce((n,g)=>n+scopedQueries(g).length,0);
-  for(const group of cloudCollections) for(const q of scopedQueries(group)){
-    const unsub=onSnapshot(q, snap=>{
-      const local=S[group.key]||[]; let changed=false;
-      snap.docChanges().forEach(change=>{
-        if(change.type==="removed"){
-          const rid=change.doc.id,ri=local.findIndex(x=>String(x.id)===String(rid));
-          lastCloudJSON.delete(localKey(group.name,rid));
-          if(ri>=0&&!pendingHas(group.name,rid)){local.splice(ri,1);changed=true;}
-          return;
+
+  const total=cloudCollections.reduce(
+    (n,g)=>n+scopedQueries(g).length,
+    0
+  );
+
+  for(const group of cloudCollections){
+    for(const q of scopedQueries(group)){
+
+      const unsub=onSnapshot(q,snap=>{
+
+        const local=S[group.key]||[];
+        let changed=false;
+
+        snap.docChanges().forEach(change=>{
+
+          if(change.type==="removed"){
+            const rid=change.doc.id;
+            const ri=local.findIndex(
+              x=>String(x.id)===String(rid)
+            );
+
+            lastCloudJSON.delete(localKey(group.name,rid));
+
+            if(ri>=0&&!pendingHas(group.name,rid)){
+              local.splice(ri,1);
+              changed=true;
+            }
+
+            return;
+          }
+
+          const remote={
+            ...change.doc.data(),
+            id:change.doc.id
+          };
+
+          if(pendingHas(group.name,remote.id))return;
+
+          lastCloudJSON.set(
+            localKey(group.name,remote.id),
+            stableCloudJSON(remote)
+          );
+
+          const idx=local.findIndex(
+            x=>String(x.id)===String(remote.id)
+          );
+
+          if(idx<0){
+            local.push(remote);
+            changed=true;
+          }else if(
+            change.type==="modified"||
+            change.type==="added"
+          ){
+            if(
+              JSON.stringify(local[idx])!==
+              JSON.stringify(remote)
+            ){
+              local[idx]=remote;
+              changed=true;
+            }
+          }
+        });
+
+        S[group.key]=local;
+
+        if(group.name==="veiculos"){
+          cloudVehicleIds=new Set(
+            snap.docs.map(d=>String(d.id))
+          );
         }
-        const remote={...change.doc.data(),id:change.doc.id};
-        if(pendingHas(group.name,remote.id))return;
-        
-        lastCloudJSON.set(localKey(group.name,remote.id),stableCloudJSON(remote));
-        const idx=local.findIndex(x=>String(x.id)===String(remote.id));
-        if(idx<0){local.push(remote);changed=true;}
-        else if(change.type==="modified"||change.type==="added"){
-          if(JSON.stringify(local[idx])!==JSON.stringify(remote)){local[idx]=remote;changed=true;}
+
+        if(
+          group.name==="veiculos"&&
+          !vehiclesChecked&&
+          !isAdmin()&&
+          snap.docs.length>0
+        ){
+          vehiclesChecked=true;
+
+          const cloudIds=new Set(
+            snap.docs.map(d=>String(d.id))
+          );
+
+          const used=new Set(
+            [...(S.r||[]),...(S.ab||[])]
+              .map(x=>String(x.vid))
+          );
+
+          const before=S.veics.length;
+
+          S.veics=S.veics.filter(v=>
+            cloudIds.has(String(v.id))||
+            used.has(String(v.id))
+          );
+
+          if(
+            !S.veics.some(
+              v=>String(v.id)===String(S.ativo)
+            )
+          ){
+            S.ativo=S.veics[0]?.id;
+          }
+
+          if(S.veics.length!==before){
+            changed=true;
+          }
+        }
+
+        firstSnapshots++;
+
+        // Aguarda todos os dados iniciais do Firestore.
+        if(firstSnapshots>=total){
+
+          const uid=window.mastersCurrentUser?.uid;
+          const perfil=window.mastersProfile;
+          const veiculoPadraoId=String(
+            perfil?.veiculoPadraoId||""
+          );
+
+          // Aplica o veículo principal definido pelo administrador.
+          if(
+            uid&&
+            veiculoPadraoId&&
+            window.__mastersInitialVehicleUser!==uid
+          ){
+
+            const autorizados=new Set(
+              (perfil?.veiculosAutorizados||[])
+                .map(String)
+            );
+
+            const veiculoInicial=S.veics.find(v=>
+              String(v.id)===veiculoPadraoId&&
+              autorizados.has(String(v.id))
+            );
+
+            if(veiculoInicial){
+              S.ativo=veiculoInicial.id;
+              window.__mastersInitialVehicleUser=uid;
+              changed=true;
+
+              console.log(
+                "Veículo principal aplicado:",
+                veiculoInicial.veiculo,
+                veiculoInicial.id
+              );
+            }else{
+              console.warn(
+                "Veículo principal não encontrado ou não autorizado:",
+                veiculoPadraoId
+              );
+            }
+          }
+        }
+
+        if(changed){
+          window.__mastersApplyingCloud=true;
+
+          try{
+            save();
+            sv();
+            fillH();
+            draw();
+            prev();
+            aclr();
+            alist();
+          }finally{
+            window.__mastersApplyingCloud=false;
+          }
+        }
+
+        if(firstSnapshots>=total){
+          liveReady=true;
+
+          if(live){
+            live.textContent=
+              "Conectado: dados autorizados atualizados em tempo real."+
+              (
+                !isAdmin()&&
+                !(mastersProfile?.veiculosAutorizados||[]).length
+                ?" Atenção: nenhum veículo autorizado neste perfil; peça ao administrador."
+                :""
+              );
+          }
+
+          window.dispatchEvent(
+            new Event("masters-local-save")
+          );
+        }
+
+      },err=>{
+        if(live){
+          live.textContent=
+            "Falha na atualização: "+(err.message||err);
         }
       });
-      S[group.key]=local;if(group.name==="veiculos")cloudVehicleIds=new Set(snap.docs.map(d=>String(d.id)));
-      if(group.name==="veiculos"&&!vehiclesChecked&&!isAdmin()&&snap.docs.length>0){
-        vehiclesChecked=true;
-        const cloudIds=new Set(snap.docs.map(d=>String(d.id))),used=new Set([...(S.r||[]),...(S.ab||[])].map(x=>String(x.vid))),before=S.veics.length;
-        S.veics=S.veics.filter(v=>cloudIds.has(String(v.id))||used.has(String(v.id)));
-        if(!S.veics.some(v=>String(v.id)===String(S.ativo)))S.ativo=S.veics[0]?.id;
-        if(S.veics.length!==before)changed=true;
-      }
-      firstSnapshots++;
-      if(changed){window.__mastersApplyingCloud=true;try{save();sv();fillH();draw();prev();aclr();alist();}finally{window.__mastersApplyingCloud=false;}}
-      if(firstSnapshots>=total){liveReady=true;if(live)live.textContent="Conectado: dados autorizados atualizados em tempo real."+(!isAdmin()&&!(mastersProfile?.veiculosAutorizados||[]).length?" Atenção: nenhum veículo autorizado neste perfil; peça ao administrador.":"");window.dispatchEvent(new Event("masters-local-save"));}
-    },err=>{if(live)live.textContent="Falha na atualização: "+(err.message||err);});
-    liveUnsubs.push(unsub);
+
+      liveUnsubs.push(unsub);
+    }
   }
 }
 window.addEventListener("online",()=>{ if(liveReady) window.dispatchEvent(new Event("masters-local-save")); });
