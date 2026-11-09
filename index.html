@@ -1131,6 +1131,12 @@ async function saveDefaultVehicleAdmin(){
 
   const userId=userSelect?.value;
   const vehicleId=vehicleSelect?.value;
+  const currentUser=auth.currentUser;
+
+  if(!currentUser){
+    status.textContent='Sessão não autenticada. Entre novamente como administrador.';
+    return;
+  }
 
   if(!userId||!vehicleId){
     status.textContent='Selecione o funcionário e o veículo.';
@@ -1155,7 +1161,7 @@ async function saveDefaultVehicleAdmin(){
         veiculoPadraoId:vehicleId,
         veiculoPadraoNome:vehicle.veiculo||vehicle.modelo||'',
         atualizadoEm:serverTimestamp(),
-        atualizadoPor:window.mastersCurrentUser.uid
+        atualizadoPor:currentUser.uid
       },
       {merge:true}
     );
@@ -1163,9 +1169,11 @@ async function saveDefaultVehicleAdmin(){
     user.veiculoPadraoId=vehicleId;
     user.veiculoPadraoNome=vehicle.veiculo||vehicle.modelo||'';
 
-    status.textContent=`Veículo principal de ${user.usuario||'funcionário'} salvo com sucesso.`;
+    status.textContent=
+      `Veículo principal de ${user.usuario||'funcionário'} salvo com sucesso.`;
 
   }catch(e){
+    console.error('Erro ao salvar veículo principal:',e);
     status.textContent='Erro ao salvar: '+(e.message||e);
   }finally{
     button.disabled=false;
