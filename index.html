@@ -871,6 +871,7 @@ function startLiveSync() {
   }
 
   let firstSnapshots = 0;
+  let initialSyncSent = false;
   const initialSnapshotsSeen = new Set();
   const total = consultas.length;
 
@@ -1032,59 +1033,35 @@ function startLiveSync() {
           }
         }
 
-        if (changed) {
-          window.__mastersApplyingCloud = true;
-
-          if (
-            typeof mastersRecebendoFirebase !== "undefined"
-          ) {
-            mastersRecebendoFirebase = true;
-          }
-
-          try {
-            save();
-            sv();
-            fillH();
-            draw();
-            prev();
-            aclr();
-            alist();
-          } finally {
-            window.__mastersApplyingCloud = false;
-
-            if (
-              typeof mastersRecebendoFirebase !== "undefined"
-            ) {
-              mastersRecebendoFirebase = false;
-            }
-          }
-        }
-
-        // Conta somente o primeiro snapshot de cada consulta.
-        if (!initialSnapshotsSeen.has(queryIndex)) {
-          initialSnapshotsSeen.add(queryIndex);
-          firstSnapshots++;
-        }
-
         if (firstSnapshots >= total) {
-          liveReady = true;
+  liveReady = true;
 
-          if (live) {
-            live.textContent =
-              "Conectado: dados autorizados atualizados em tempo real." +
-              (
-                !isAdmin() &&
-                !(mastersProfile?.veiculosAutorizados || []).length
-                  ? " Atenção: nenhum veículo autorizado neste perfil; peça ao administrador."
-                  : ""
-              );
-          }
+  if (live) {
+    live.textContent =
+      "Conectado: dados autorizados atualizados em tempo real." +
+      (
+        !isAdmin() &&
+        !(mastersProfile?.veiculosAutorizados || []).length
+          ? " Atenção: nenhum veículo autorizado neste perfil; peça ao administrador."
+          : ""
+      );
+  }
 
-          // IMPORTANTE:
-          // Não enviar os dados locais automaticamente
-          // depois de receber os snapshots do Firebase.
-        }
-      },
+  // Tenta enviar registros locais após carregar o Firebase.
+  if (!initialSyncSent) {
+    initialSyncSent = true;
+
+    setTimeout(() => {
+      if (
+        liveReady &&
+        window.mastersCurrentUser &&
+        !(typeof mastersRecebendoFirebase !== "undefined" && mastersRecebendoFirebase)
+      ) {
+        window.dispatchEvent(new Event("masters-local-save"));
+      }
+    }, 500);
+  }
+}
 
       err => {
         if (live) {
