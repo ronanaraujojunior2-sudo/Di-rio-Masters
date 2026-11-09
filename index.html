@@ -415,12 +415,12 @@ function emailFromUsername(value) {
   const email = LOGIN_EMAILS[key];
 
   if (!email) {
-    throw new Error("Usuário não cadastrado.");
+    throw new Error("Usuário não cadastrado. Digite MASTERS, RONAN, ECCLESTON ou VALDINEI.");
   }
 
   return email;
 }
-
+  
 let sessionOpen = false, sessionOpening = false;
 function showLoginError(error) {
   const code = error?.code || "";
