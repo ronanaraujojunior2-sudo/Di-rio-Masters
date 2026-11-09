@@ -449,7 +449,11 @@ window.isAdmin = () => {
 
 const isAdmin = window.isAdmin;
 
-// Ponte explícita entre o módulo Firebase e o script principal do aplicativo.Object.defineProperty(window, "mastersCurrentUser", { configurable:true, get:()=>auth.currentUser });
+// Ponte explícita entre o módulo Firebase e o script principal do aplicativo.
+Object.defineProperty(window, "mastersCurrentUser", {
+  configurable: true,
+  get: () => auth.currentUser
+});
 Object.defineProperty(window, "mastersProfile", { configurable:true, get:()=>mastersProfile });
 window.mastersRunTransaction = (...args)=>runTransaction(db,...args);
 window.mastersDb = db;
