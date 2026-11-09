@@ -109,8 +109,25 @@ if(!S.veics){const id=uid();S={veics:[{id,veiculo:'FIAT MOBI',placa:'TYD5C39',ob
 if(!S.ab)S.ab=[];
 let sel=null,ed=null;const npl=x=>String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,''),vOk=v=>!window.mastersVidValido||window.mastersVidValido(v);const own=()=>({uid:window.mastersCurrentUser?.uid||'',usuarioRegistro:window.mastersProfile?.usuario||'',criadoEm:new Date().toISOString()});
 const save=()=>{localStorage.setItem(K,JSON.stringify(S));if(!window.__mastersApplyingCloud)window.dispatchEvent(new Event('masters-local-save'))},V=()=>S.veics.find(v=>v.id==S.ativo)||S.veics[0];
-const RS=()=>S.r.map((r,i)=>[r,i]).filter(x=>x[0].vid==V().id).sort((a,b)=>ckey(a[0].data,a[0].hS).localeCompare(ckey(b[0].data,b[0].hS))||a[1]-b[1]).map(x=>x[0]);
-const ult=()=>{const l=RS().filter(r=>Number.isFinite(r.kmC)).at(-1);return l?l.kmC:null};
+const RS=()=>{
+  const consultaAdmin=
+    isAdmin()&&
+    window.mastersAdminViewVehicleId;
+
+  const vid=consultaAdmin
+    ?String(window.mastersAdminViewVehicleId)
+    :String(V().id);
+
+  return S.r
+    .map((r,i)=>[r,i])
+    .filter(x=>String(x[0].vid)===vid)
+    .sort((a,b)=>
+      ckey(a[0].data,a[0].hS)
+        .localeCompare(ckey(b[0].data,b[0].hS))||
+      a[1]-b[1]
+    )
+    .map(x=>x[0]);
+};const ult=()=>{const l=RS().filter(r=>Number.isFinite(r.kmC)).at(-1);return l?l.kmC:null};
 const H=[['veiculo','Veículo','text'],['placa','Placa','text'],['kmFinal','Km Final','number'],['dIni','Data Início','date'],['dFim','Data Final','date'],['kmOleo','KM Troca Óleo','number'],['dOleo','Data Troca Óleo','date']];
 const F=[['data','Data','date'],['kmS','KM saída','number'],['kmC','KM chegada','number'],['hS','Hora saída','time'],['hC','Hora chegada','time'],['od','Origem / Destino','text','w'],['mot','Nome do motorista (legível)','text'],['fin','Finalidade','text'],['usu','Usuário','text']];
 const fd=d=>{d=dk(d);const m=d.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:d},km=r=>(r.kmS!==''&&r.kmC!==''&&r.kmS!=null&&r.kmC!=null)?r.kmC-r.kmS:null;
@@ -132,14 +149,80 @@ $('#nv-cancelar').onclick=()=>$('#vehicle-dialog').close();
 $('#nv-salvar').onclick=()=>{const nome=$('#nv-nome').value.trim(),modelo=$('#nv-modelo').value.trim(),placa=$('#nv-placa').value.trim().toUpperCase(),kmAtual=$('#nv-km').value.trim();let erro='';if(!nome)erro='Informe uma identificação para o veículo.';else if(!modelo)erro='Informe o modelo do veículo.';else if(kmAtual===''||!Number.isFinite(Number(kmAtual))||Number(kmAtual)<0)erro='Informe a quilometragem atual válida.';else if(placa&&S.veics.some(v=>npl(v.placa)===npl(placa)))erro='Já existe um veículo cadastrado com essa placa.';$('#nv-erro').textContent=erro;if(erro)return;const id=uid();S.veics.push({id,veiculo:nome,modelo,placa,kmAtual:Number(kmAtual),obs:''});S.ativo=id;save();$('#vehicle-dialog').close();sel=null;sv();fillH();draw();clr()};
 function head(){const v=V();$('#ph').innerHTML=`<b>Veículo:</b> ${esc(v.veiculo)} &nbsp; <b>Placa:</b> ${esc(v.placa)} &nbsp; <b>Km Final:</b> ${esc(v.kmFinal)} &nbsp; <b>Período:</b> ${fd(v.dIni)} a ${fd(v.dFim)} &nbsp; <b>KM Troca Óleo:</b> ${esc(v.kmOleo)} &nbsp; <b>Data Troca Óleo:</b> ${fd(v.dOleo)}`}
 const PG={},PP=10;let lastV=null;
-function draw(){let t=0;const R=RS(),vid=V().id;if(lastV!==vid){PG[vid]=1;lastV=vid}if(sel&&!R.some(r=>r.id==sel))sel=null;
- R.forEach(r=>{const k=km(r);if(k>0)t+=k});
- const D=R.slice().reverse(),np=Math.max(1,Math.ceil(D.length/PP)),p=Math.min(Math.max(1,PG[vid]||1),np);PG[vid]=p;
- $('#tb').innerHTML=D.slice((p-1)*PP,p*PP).map(r=>{const k=km(r);return `<tr class="r${r.id==sel?' sel':''}" data-id="${r.id}"><td>${fd(r.data)}</td><td>${esc(r.kmS)}</td><td>${esc(r.kmC)}</td><td>${esc(r.hS)}</td><td>${esc(r.hC)}</td><td>${esc(r.od)}</td><td>${esc(r.mot)}</td><td>${r.visto?'✔':''}</td><td>${esc(r.fin)}</td><td>${esc(r.usu)}</td><td>${k??''}</td></tr>`}).join('')||'<tr><td colspan="11">Nenhum registro.</td></tr>';
- $('#pg-info').textContent=`Página ${p} de ${np} · ${D.length} viagem(ns)`;$('#pg-prev').disabled=p<=1;$('#pg-next').disabled=p>=np;
- $('#tot').textContent=t;$('#acts').hidden=!sel||!window.mastersCanManageRecord?.(S.r.find(r=>r.id==sel));head()}
-$('#pg-prev').onclick=()=>{PG[V().id]=(PG[V().id]||1)-1;sel=null;draw()};$('#pg-next').onclick=()=>{PG[V().id]=(PG[V().id]||1)+1;sel=null;draw()};
-$('#tb').onclick=e=>{const tr=e.target.closest('tr.r');if(!tr)return;sel=sel==tr.dataset.id?null:tr.dataset.id;draw()};
+function draw(){
+  let t=0;
+
+  const consultaAdmin=
+    isAdmin()&&
+    window.mastersAdminViewVehicleId;
+
+  const vid=String(
+    consultaAdmin
+      ?window.mastersAdminViewVehicleId
+      :V().id
+  );
+
+  if(lastV!==vid){
+    PG[vid]=1;
+    lastV=vid;
+  }
+
+  if(sel&&!S.r.some(r=>String(r.id)===String(sel))){
+    sel=null;
+  }
+
+  const R=RS();
+
+  R.forEach(r=>{
+    const k=km(r);
+    if(k>0)t+=k;
+  });
+
+  const D=R.slice().reverse();
+  const np=Math.max(1,Math.ceil(D.length/PP));
+  const p=Math.min(
+    Math.max(1,PG[vid]||1),
+    np
+  );
+
+  PG[vid]=p;
+
+  $('#tb').innerHTML=
+    D.slice((p-1)*PP,p*PP).map(r=>{
+      const k=km(r);
+
+      return `<tr class="r${r.id==sel?' sel':''}" data-id="${r.id}">
+        <td>${fd(r.data)}</td>
+        <td>${esc(r.kmS)}</td>
+        <td>${esc(r.kmC)}</td>
+        <td>${esc(r.hS)}</td>
+        <td>${esc(r.hC)}</td>
+        <td>${esc(r.od)}</td>
+        <td>${esc(r.mot)}</td>
+        <td>${r.visto?'✔':''}</td>
+        <td>${esc(r.fin)}</td>
+        <td>${esc(r.usu)}</td>
+        <td>${k??''}</td>
+      </tr>`;
+    }).join('')||
+    '<tr><td colspan="11">Nenhum registro.</td></tr>';
+
+  $('#pg-info').textContent=
+    `Página ${p} de ${np} · ${D.length} viagem(ns)`;
+
+  $('#pg-prev').disabled=p<=1;
+  $('#pg-next').disabled=p>=np;
+
+  $('#tot').textContent=t;
+
+  $('#acts').hidden=
+    !sel||
+    !window.mastersCanManageRecord?.(
+      S.r.find(r=>String(r.id)===String(sel))
+    );
+
+  head();
+}
 function clr(){F.forEach(([k])=>$('#f_'+k).value='');$('#visto').checked=false;ed=null;$('#lv').hidden=true;$('#ft').textContent='Novo registro';$('#cancel').hidden=true;$('#add').textContent='Salvar registro';$('#err').textContent='';
  const l=RS().at(-1),u=ult();if(u!=null)$('#f_kmS').value=u;else if(V()&&V().kmAtual!=null)$('#f_kmS').value=V().kmAtual;if(l)['mot','usu'].forEach(k=>$('#f_'+k).value=l[k]||'');$('#f_data').value=new Date().toLocaleDateString('sv')}
 $('#ed').onclick=()=>{const r=S.r.find(x=>x.id==sel);if(!r||!window.mastersCanManageRecord?.(r))return;F.forEach(([k])=>$('#f_'+k).value=r[k]??'');$('#visto').checked=!!r.visto;ed=r.id;$('#f_vid').value=r.vid;$('#lv').hidden=false;$('#ft').textContent='Editando registro';$('#cancel').hidden=false;$('#add').textContent='Salvar alterações';$('#err').textContent='';scrollTo(0,0)};
@@ -432,6 +515,73 @@ function showLoginError(error) {
     statusBox.textContent = error?.message || "Não foi possível entrar.";
   }
 }
+  function installAdminVehicleViewer(){
+
+  if(!isAdmin())return;
+  if(document.getElementById("admin-vehicle-viewer"))return;
+
+  const panel=document.createElement("section");
+  panel.id="admin-vehicle-viewer";
+
+  panel.style.cssText=
+    "max-width:900px;margin:12px auto;padding:14px;background:#eef5ff;border:1px solid #b8ccec;border-radius:10px";
+
+  panel.innerHTML=`
+    <b>Consulta administrativa de viagens</b>
+    <p style="font-size:13px;margin:6px 0 10px">
+      Selecione um veículo para visualizar suas viagens sem assumir ou reservar o veículo.
+    </p>
+
+    <label for="admin-view-vehicle">Veículo para consulta</label>
+
+    <select id="admin-view-vehicle"
+      style="width:100%;padding:10px;margin-top:6px">
+    </select>
+
+    <p id="admin-view-status"
+      style="font-size:12px;margin-bottom:0">
+      Consulta administrativa independente das reservas.
+    </p>
+  `;
+
+  document.body.insertBefore(
+    panel,
+    document.querySelector("main")
+  );
+
+  const select=document.getElementById("admin-view-vehicle");
+
+  select.innerHTML=
+    '<option value="">Selecione um veículo</option>'+
+    vopts();
+
+  const inicial=S.veics.some(v=>String(v.id)===String(S.ativo))
+    ?String(S.ativo)
+    :String(S.veics[0]?.id||"");
+
+  if(inicial){
+    select.value=inicial;
+    window.mastersAdminViewVehicleId=inicial;
+  }
+
+  select.onchange=()=>{
+    const id=String(select.value||"");
+
+    window.mastersAdminViewVehicleId=id||null;
+
+    sel=null;
+
+    draw();
+
+    const status=document.getElementById("admin-view-status");
+
+    if(status){
+      status.textContent=id
+        ?"Exibindo viagens do veículo selecionado. Nenhuma reserva foi alterada."
+        :"Selecione um veículo para consultar as viagens.";
+    }
+  };
+}
 async function openSession(user) {
   if (sessionOpen || sessionOpening) return;
   sessionOpening = true;
@@ -476,7 +626,9 @@ async function openSession(user) {
       document.getElementById('cloud-send').onclick = () => syncToCloud();
       document.getElementById('cloud-get').onclick = () => syncFromCloud();
     }
-    installReservationPanel();installMigrationPanel();
+   installReservationPanel();
+installAdminVehicleViewer();
+installMigrationPanel();
     const sendButton=document.getElementById('cloud-send'); if(sendButton)sendButton.hidden=!isAdmin();
     if(!isAdmin()){const nv=document.getElementById('nv');if(nv)nv.hidden=true;const acts=document.getElementById('acts');if(acts)acts.hidden=true;const aa=document.getElementById('aacts');if(aa)aa.hidden=true;}
     startReservationWatch();
