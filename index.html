@@ -822,47 +822,152 @@ function startLiveSync() {
     return;
   }
 
-  // Identifica registros semanticamente iguais,
-  // mesmo quando possuem IDs diferentes.
   function assinaturaRegistroCloud(registro) {
     const dados = { ...registro };
-
     [
-      "id",
-      "uid",
-      "usuarioRegistro",
-      "criadoPor",
-      "criadoEm",
-      "atualizadoEm",
-      "atualizadoPor",
-      "sincronizadoEm",
-      "chaveUnica",
-      "legado"
+      "id", "uid", "usuarioRegistro", "criadoPor", "criadoEm",
+      "atualizadoEm", "atualizadoPor", "sincronizadoEm",
+      "chaveUnica", "legado"
     ].forEach(campo => delete dados[campo]);
-
     return stableCloudJSON(dados);
   }
 
-  // Remove duplicações locais sem excluir dados do Firebase.
   function removerDuplicadosLocais(lista, nomeColecao) {
-    if (
-      nomeColecao !== "viagens" &&
-      nomeColecao !== "abastecimentos"
-    ) return lista;
-
+    if (nomeColecao !== "viagens" && nomeColecao !== "abastecimentos") {
+      return lista;
+    }
     const encontrados = new Set();
-
     return lista.filter(registro => {
       const assinatura = assinaturaRegistroCloud(registro);
-
       if (encontrados.has(assinatura)) return false;
-
       encontrados.add(assinatura);
       return true;
     });
   }
 
-         // Conta somente o primeiro snapshot de cada consulta.
+  const consultas = [];
+  for (const group of cloudCollections) {
+    for (const q of scopedQueries(group)) {
+      consultas.push({ group, q });
+    }
+  }
+
+  let firstSnapshots = 0;
+  let initialSyncSent = false;
+  const initialSnapshotsSeen = new Set();
+  const total = consultas.length;
+
+  if (total === 0) {
+    liveReady = true;
+    if (live) live.textContent = "Conectado.";
+    return;
+  }
+
+  consultas.forEach(({ group, q }, queryIndex) => {
+    const unsub = onSnapshot(
+      q,
+      snap => {
+        let local = S[group.key] || [];
+        let changed = false;
+        const semanticKeys = new Set();
+        const tamanhoAnterior = local.length;
+
+        local = removerDuplicadosLocais(local, group.name);
+        if (local.length !== tamanhoAnterior) changed = true;
+
+        if (group.name === "viagens" || group.name === "abastecimentos") {
+          local.forEach(registro => {
+            semanticKeys.add(assinaturaRegistroCloud(registro));
+          });
+        }
+
+        snap.docChanges().forEach(change => {
+          const rid = String(change.doc.id);
+
+          if (change.type === "removed") {
+            const ri = local.findIndex(x => String(x.id) === rid);
+            lastCloudJSON.delete(localKey(group.name, rid));
+            if (ri >= 0 && !pendingHas(group.name, rid)) {
+              local.splice(ri, 1);
+              changed = true;
+            }
+            return;
+          }
+
+          const remote = { ...change.doc.data(), id: rid };
+          if (pendingHas(group.name, remote.id)) return;
+
+          lastCloudJSON.set(
+            localKey(group.name, remote.id),
+            stableCloudJSON(remote)
+          );
+
+          const idx = local.findIndex(x => String(x.id) === rid);
+          if (idx >= 0) {
+            if (
+              (change.type === "modified" || change.type === "added") &&
+              stableCloudJSON(local[idx]) !== stableCloudJSON(remote)
+            ) {
+              local[idx] = remote;
+              changed = true;
+            }
+            return;
+          }
+
+          if (group.name === "viagens" || group.name === "abastecimentos") {
+            const assinatura = assinaturaRegistroCloud(remote);
+            if (semanticKeys.has(assinatura)) return;
+            semanticKeys.add(assinatura);
+          }
+
+          local.push(remote);
+          changed = true;
+        });
+
+        S[group.key] = local;
+
+        if (group.name === "veiculos") {
+          cloudVehicleIds = new Set(snap.docs.map(d => String(d.id)));
+        }
+
+        if (
+          group.name === "veiculos" &&
+          !vehiclesChecked &&
+          !isAdmin() &&
+          snap.docs.length > 0
+        ) {
+          vehiclesChecked = true;
+          const cloudIds = new Set(snap.docs.map(d => String(d.id)));
+          const used = new Set([...(S.r || []), ...(S.ab || [])].map(x => String(x.vid)));
+          const before = S.veics.length;
+
+          S.veics = S.veics.filter(v =>
+            cloudIds.has(String(v.id)) || used.has(String(v.id))
+          );
+
+          if (!S.veics.some(v => String(v.id) === String(S.ativo))) {
+            S.ativo = S.veics[0]?.id;
+          }
+          if (S.veics.length !== before) changed = true;
+        }
+
+        if (changed) {
+          window.__mastersApplyingCloud = true;
+          mastersRecebendoFirebase = true;
+          try {
+            save();
+            sv();
+            fillH();
+            draw();
+            prev();
+            aclr();
+            alist();
+          } finally {
+            window.__mastersApplyingCloud = false;
+            mastersRecebendoFirebase = false;
+          }
+        }
+
         if (!initialSnapshotsSeen.has(queryIndex)) {
           initialSnapshotsSeen.add(queryIndex);
           firstSnapshots++;
@@ -870,7 +975,6 @@ function startLiveSync() {
 
         if (firstSnapshots >= total) {
           liveReady = true;
-
           if (live) {
             live.textContent =
               "Conectado: dados autorizados atualizados em tempo real." +
@@ -882,20 +986,15 @@ function startLiveSync() {
               );
           }
 
-          // Envia os registros locais após carregar os dados do Firebase.
           if (!initialSyncSent) {
             initialSyncSent = true;
-
             setTimeout(() => {
               if (
                 liveReady &&
                 window.mastersCurrentUser &&
-                !(typeof mastersRecebendoFirebase !== "undefined" &&
-                  mastersRecebendoFirebase)
+                !mastersRecebendoFirebase
               ) {
-                window.dispatchEvent(
-                  new Event("masters-local-save")
-                );
+                window.dispatchEvent(new Event("masters-local-save"));
               }
             }, 500);
           }
@@ -903,40 +1002,9 @@ function startLiveSync() {
       },
       error => {
         console.error("Erro na sincronização em tempo real:", error);
-
         if (live) {
           live.textContent =
-            "Falha na sincronização: " +
-            (error.message || error);
-        }
-      }
-    );
-
-    liveUnsubs.push(unsub);
-  });
-}
-
-  // Tenta enviar registros locais após carregar o Firebase.
-  if (!initialSyncSent) {
-    initialSyncSent = true;
-
-    setTimeout(() => {
-      if (
-        liveReady &&
-        window.mastersCurrentUser &&
-        !(typeof mastersRecebendoFirebase !== "undefined" && mastersRecebendoFirebase)
-      ) {
-        window.dispatchEvent(new Event("masters-local-save"));
-      }
-    }, 500);
-  }
-}
-
-      err => {
-        if (live) {
-          live.textContent =
-            "Falha na atualização: " +
-            (err.message || err);
+            "Falha na sincronização: " + (error.message || error);
         }
       }
     );
