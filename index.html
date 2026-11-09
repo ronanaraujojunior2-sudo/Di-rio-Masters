@@ -731,33 +731,67 @@ async function releaseCurrentVehicle(adminOverride=false,vehicleId=null){
 function adminRelease(id){if(!isAdmin()){alert('Acesso restrito ao administrador MASTERS.');return;}releaseCurrentVehicle(true,id);}
 
 async function syncToCloud(){
-  const status=document.getElementById("cloud-status"),send=document.getElementById("cloud-send");
-  if(!isAdmin()){if(status)status.textContent="Somente MASTERS pode fazer a migração inicial dos dados antigos.";return;}
-  if(send)send.disabled=true;if(status)status.textContent="Enviando dados antigos sem apagar registros existentes…";
+  const status=document.getElementById("cloud-status");
+  const send=document.getElementById("cloud-send");
+
+  if(!isAdmin()){
+    if(status)status.textContent="Somente MASTERS pode fazer a migração inicial dos dados antigos.";
+    return;
+  }
+
+  if(send)send.disabled=true;
+  if(status)status.textContent="Enviando dados antigos sem apagar registros existentes…";
+
   try{
     let created=0,skipped=0;
+
     for(const group of cloudCollections){
       for(const row of (S[group.key]||[])){
         if(!row.id)continue;
-        const id=String(row.id),ref=doc(db,group.name,id),old=await getDoc(ref);
-        if(old.exists()){skipped++;continue;}
-        const payload={...row,id,criadoPor:window.mastersCurrentUser.uid,atualizadoEm:serverTimestamp(),atualizadoPor:window.mastersCurrentUser.uid};
+
+        const id=String(row.id);
+        const ref=doc(db,group.name,id);
+        const old=await getDoc(ref);
+
+        if(old.exists()){
+          skipped++;
+          continue;
+        }
+
+        const payload={
+          ...row,
+          id,
+          criadoPor:window.mastersCurrentUser.uid,
+          atualizadoEm:serverTimestamp(),
+          atualizadoPor:window.mastersCurrentUser.uid
+        };
+
         if(group.name==="veiculos")delete payload.uid;
         else if(!payload.uid)payload.legado=true;
-        await setDoc(ref,payload);created++;
+
+        await setDoc(ref,payload);
+        created++;
       }
     }
-    if(status)status.textContent=`Migração concluída: ${created} enviados; ${skipped} já existentes preservados.`;
-  }catch(e){if(status)status.textContent="Falha na migração: "+(e.message||e);}
-  finally{if(send)send.disabled=false;}
+
+    if(status){
+      status.textContent=`Migração concluída: ${created} enviados; ${skipped} já existentes preservados.`;
+    }
+
+  }catch(e){
+    if(status)status.textContent="Falha na migração: "+(e.message||e);
+  }finally{
+    if(send)send.disabled=false;
+  }
 }
+
 
 async function syncFromCloud(silent=false){
   const status=document.getElementById("cloud-status");
   const get=document.getElementById("cloud-get");
 
-  if(get) get.disabled=true;
-  if(!silent && status) status.textContent="Atualizando registros autorizados…";
+  if(get)get.disabled=true;
+  if(!silent&&status)status.textContent="Atualizando registros autorizados…";
 
   try{
     let added=0;
@@ -781,38 +815,51 @@ async function syncFromCloud(silent=false){
       S[group.key]=local;
     }
 
-    // Seleciona o veículo inicial conforme o usuário autenticado.
+    // Identifica o veículo inicial do usuário autenticado.
     const uid=window.mastersCurrentUser?.uid;
     const usuario=normalizeLoginName(
-      window.mastersProfile?.usuario || ""
+      window.mastersProfile?.usuario||""
     );
 
-    if(uid && window.__mastersInitialVehicleUser!==uid){
+    const placasPorUsuario={
+      RONAN:"TYD5C39",
+      ECCLESTONBRITO:"QZH4A95",
+      VALDINEITEIXEIRA:"QZY5H82"
+    };
 
-      const placasPorUsuario={
-        RONAN:"TYD5C39",
-        ECCLESTONBRITO:"QZH4A95",
-        VALDINEITEIXEIRA:"QZY5H82"
-      };
+    if(uid&&window.__mastersInitialVehicleUser!==uid){
 
       const placa=placasPorUsuario[usuario];
 
       if(placa){
-        const veiculoInicial=S.veics.find(v=>
-          String(v.placa||"")
+
+        const normalizarPlaca=valor=>
+          String(valor||"")
             .replace(/[^A-Z0-9]/gi,"")
-            .toUpperCase()===placa
+            .toUpperCase();
+
+        const veiculoInicial=S.veics.find(v=>
+          normalizarPlaca(v.placa)===placa||
+          normalizarPlaca(v.veiculo).includes(placa)||
+          normalizarPlaca(v.modelo).includes(placa)
         );
 
         if(veiculoInicial){
           S.ativo=veiculoInicial.id;
           window.__mastersInitialVehicleUser=uid;
+        }else{
+          console.warn(
+            "Veículo inicial não encontrado:",
+            usuario,
+            placa,
+            S.veics
+          );
         }
       }
     }
 
-    // Mantém o primeiro veículo como alternativa de segurança.
-    if(!S.ativo && S.veics.length){
+    // Alternativa somente quando não existe veículo selecionado.
+    if(!S.ativo&&S.veics.length){
       S.ativo=S.veics[0].id;
     }
 
@@ -837,8 +884,10 @@ async function syncFromCloud(silent=false){
     if(status){
       status.textContent="Falha ao atualizar: "+(e.message||e);
     }
+    console.error("Erro na sincronização:",e);
+
   }finally{
-    if(get) get.disabled=false;
+    if(get)get.disabled=false;
   }
 }
 
