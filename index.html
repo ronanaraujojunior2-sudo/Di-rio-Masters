@@ -751,22 +751,97 @@ async function syncToCloud(){
   }catch(e){if(status)status.textContent="Falha na migração: "+(e.message||e);}
   finally{if(send)send.disabled=false;}
 }
+
 async function syncFromCloud(silent=false){
-  const status=document.getElementById("cloud-status"),get=document.getElementById("cloud-get");
-  if(get)get.disabled=true;if(!silent&&status)status.textContent="Atualizando registros autorizados…";
+  const status=document.getElementById("cloud-status");
+  const get=document.getElementById("cloud-get");
+
+  if(get) get.disabled=true;
+  if(!silent && status) status.textContent="Atualizando registros autorizados…";
+
   try{
     let added=0;
+
     for(const group of cloudCollections){
-      const local=S[group.key]||[],ids=new Set(local.map(x=>String(x.id)));
-      for(const q of scopedQueries(group)){const snap=await getDocs(q);snap.forEach(d=>{if(!ids.has(String(d.id))){local.push({...d.data(),id:d.id});ids.add(String(d.id));added++;}});}
+      const local=S[group.key]||[];
+      const ids=new Set(local.map(x=>String(x.id)));
+
+      for(const q of scopedQueries(group)){
+        const snap=await getDocs(q);
+
+        snap.forEach(d=>{
+          if(!ids.has(String(d.id))){
+            local.push({...d.data(),id:d.id});
+            ids.add(String(d.id));
+            added++;
+          }
+        });
+      }
+
       S[group.key]=local;
     }
-    if(!S.ativo&&S.veics.length)S.ativo=S.veics[0].id;
-    window.__mastersApplyingCloud=true;try{save();sv();fillH();draw();prev();alist();}finally{window.__mastersApplyingCloud=false;}
-    if(status)status.textContent=`Atualização concluída: ${added} novo(s) registro(s).`;
-  }catch(e){if(status)status.textContent="Falha ao atualizar: "+(e.message||e);}
-  finally{if(get)get.disabled=false;}
+
+    // Seleciona o veículo inicial conforme o usuário autenticado.
+    const uid=window.mastersCurrentUser?.uid;
+    const usuario=normalizeLoginName(
+      window.mastersProfile?.usuario || ""
+    );
+
+    if(uid && window.__mastersInitialVehicleUser!==uid){
+
+      const placasPorUsuario={
+        RONAN:"TYD5C39",
+        ECCLESTONBRITO:"QZH4A95",
+        VALDINEITEIXEIRA:"QZY5H82"
+      };
+
+      const placa=placasPorUsuario[usuario];
+
+      if(placa){
+        const veiculoInicial=S.veics.find(v=>
+          String(v.placa||"")
+            .replace(/[^A-Z0-9]/gi,"")
+            .toUpperCase()===placa
+        );
+
+        if(veiculoInicial){
+          S.ativo=veiculoInicial.id;
+          window.__mastersInitialVehicleUser=uid;
+        }
+      }
+    }
+
+    // Mantém o primeiro veículo como alternativa de segurança.
+    if(!S.ativo && S.veics.length){
+      S.ativo=S.veics[0].id;
+    }
+
+    window.__mastersApplyingCloud=true;
+
+    try{
+      save();
+      sv();
+      fillH();
+      draw();
+      prev();
+      alist();
+    }finally{
+      window.__mastersApplyingCloud=false;
+    }
+
+    if(status){
+      status.textContent=`Atualização concluída: ${added} novo(s) registro(s).`;
+    }
+
+  }catch(e){
+    if(status){
+      status.textContent="Falha ao atualizar: "+(e.message||e);
+    }
+  }finally{
+    if(get) get.disabled=false;
+  }
 }
+
 
 exitBtn.addEventListener("click", async () => {
   stopLiveSync();
