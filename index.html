@@ -1,0 +1,718 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Diário de Bordo – Masters Engenharia</title>
+<script>if (location.protocol === "http:" || location.protocol === "https:") { const m=document.createElement("link"); m.rel="manifest"; m.href="manifest.webmanifest"; document.head.appendChild(m); }</script>
+<meta name="theme-color" content="#394086">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Diário Masters">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<style>
+:root{--az:#394086;--vm:#d81313;--bg:#f4f5fa;--bd:#d6d9e8}
+*{box-sizing:border-box}body{margin:0;font:15px/1.4 Arial,Helvetica,sans-serif;background:var(--bg);color:#1c1f33;padding-bottom:env(safe-area-inset-bottom)}
+#splash{position:fixed;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;z-index:9;transition:opacity .4s}
+#splash img{width:min(80vw,420px)}
+header{background:#fff;border-bottom:4px solid var(--vm);padding:calc(8px + env(safe-area-inset-top)) 14px 8px;display:flex;align-items:center;gap:12px}
+header img{height:38px;max-width:60vw}header h1{font-size:15px;margin:0 0 0 auto;color:var(--az);text-align:right}
+main{max-width:1100px;margin:0 auto;padding:12px}
+section{background:#fff;border:1px solid var(--bd);border-radius:10px;padding:12px;margin-bottom:12px}
+h2{margin:0 0 10px;font-size:15px;color:var(--az)}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+label{display:block;font-size:12px;color:#555;font-weight:bold}
+input,textarea,select{width:100%;font:inherit;padding:9px;border:1px solid var(--bd);border-radius:6px;margin-top:3px;background:#fff}
+.w{grid-column:1/-1}.ck{display:flex;gap:8px;align-items:center;font-size:14px;color:#1c1f33}.ck input{width:22px;height:22px;margin:0}
+button{font:inherit;font-weight:bold;border:0;border-radius:8px;padding:11px 14px;background:var(--az);color:#fff}
+button.s{background:#fff;color:var(--az);border:1px solid var(--az)}button.d{background:var(--vm)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tw{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:900px;font-size:13px}
+th{background:var(--az);color:#fff;padding:6px;text-align:left}td{border:1px solid var(--bd);padding:6px}tr.r:nth-child(even){background:#f7f8fc}
+tfoot td{font-weight:bold;background:#eceefa}#err,.err{color:var(--vm);font-weight:bold;margin-top:8px}.hint{font-size:12px;color:#555}
+.ph,#pv{display:none}#tabs{display:flex;background:#fff;border-bottom:1px solid var(--bd)}#tabs button{flex:1;background:#fff;color:#555;border-radius:0;border-bottom:3px solid transparent}#tabs button.on{color:var(--az);border-color:var(--az)}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}.cd{background:#eceefa;border-radius:8px;padding:8px;font-size:12px}.cd b{display:block;font-size:15px;color:var(--az)}.pg h3{margin:4px 0;color:var(--az)}[hidden]{display:none!important}tr.r{cursor:pointer}tr.sel{background:#dfe3ff!important;outline:2px solid var(--az);outline-offset:-2px}dialog{border:1px solid var(--bd);border-radius:10px;max-width:90vw}
+@media print{body>*:not(#pv){display:none!important}#pv{display:block}.pg{page-break-after:always}.pg:last-child{page-break-after:auto}@page{size:A4 landscape;margin:8mm}body{background:#fff}#splash,.np,.bar,button{display:none!important}.ph{display:block}section{border:0;padding:0}table{min-width:0;font-size:10px}td:last-child.ac,th.ac{display:none}}
+
+#dev-login{position:fixed;inset:0;z-index:10000;background:#f4f5fa;display:flex;align-items:center;justify-content:center;padding:20px}
+#dev-login .box{width:min(100%,420px);background:#fff;border:1px solid #d6d9e8;border-radius:14px;padding:22px;box-shadow:0 8px 28px #1c1f3318}
+#dev-login h2{font-size:20px;margin:0 0 8px;color:#394086}
+#dev-login p{font-size:13px;color:#555;line-height:1.45}
+#dev-login label{display:block;margin:12px 0;font-size:13px;font-weight:bold}
+#dev-login input{width:100%;padding:11px;border:1px solid #d6d9e8;border-radius:7px;margin-top:5px;font:inherit}
+#dev-login button{width:100%;margin-top:10px}
+#dev-login .status{font-size:13px;overflow-wrap:anywhere;margin-top:12px;color:#394086}
+#dev-login .warning{background:#fff4d8;border-radius:8px;padding:10px}
+
+</style></head><body>
+
+<div id="dev-login">
+  <div class="box">
+    <h2>Diário de Bordo — Masters</h2>
+    <p><b>Versão de desenvolvimento · Etapa 5</b></p>
+    <p>Teste de autenticação Firebase. Esta etapa valida o acesso, mas os registros do diário ainda continuam no armazenamento local deste navegador. Não use como versão oficial nem publique ainda.</p>
+    <label>Usuário
+      <input id="login-user" autocomplete="username" autocapitalize="none" placeholder="Digite seu nome de usuário">
+    </label>
+    <label>Senha
+      <input id="login-pass" type="password" autocomplete="current-password" placeholder="Digite sua senha">
+    </label>
+    <button id="login-enter">Entrar</button>
+    <button id="login-exit" class="s" hidden>Sair</button>
+    <div id="login-status" class="status" role="status"></div>
+    <p class="warning">Importante: esta cópia ainda não sincroniza viagens e abastecimentos entre aparelhos. A sincronização será uma etapa separada, depois de validarmos o acesso e as permissões.</p>
+  </div>
+</div>
+
+<div id="splash"><img src="logo-masters.svg" alt="Master's Engenharia"></div>
+<header><img src="logo-masters.svg" alt="Master's Engenharia"><h1>Controle de Utilização de Veículo</h1></header>
+<nav id="tabs" class="np"><button class="on" data-t="d">Diário</button><button data-t="a">Abastecimentos</button><button data-t="e">Exportar</button></nav>
+<main><div id="t_d">
+<section class="np"><h2>Veículo</h2><div class="bar" style="margin:0 0 10px"><label style="flex:1;min-width:200px">Veículo selecionado<select id="vsel" style="width:100%;padding:9px;margin-top:3px;font:inherit"></select></label><button class="s" id="switch-vehicle" type="button" style="align-self:end">Trocar de Veículo</button><button class="s" id="nv" style="align-self:end">+ Novo veículo</button></div><p class="hint" style="margin:0 0 10px">O veículo selecionado é o veículo em uso. Para registrar viagens e abastecimentos de outro veículo, use “Trocar de Veículo”.</p><div class="g" id="hf"></div></section>
+<section class="np"><h2 id="ft">Novo registro</h2><label id="lv" hidden style="margin-bottom:10px">Veículo deste registro<select id="f_vid" style="width:100%;padding:9px;margin-top:3px;font:inherit"></select></label><div class="g" id="rf"></div>
+<div class="ck w" style="margin-top:10px"><input type="checkbox" id="visto"><label for="visto" style="font-size:14px;color:inherit">Visto do motorista: confirmo que as informações estão corretas</label></div>
+<div id="err"></div><div class="bar"><button id="add">Salvar registro</button><button class="s" id="cancel" hidden>Cancelar edição</button></div></section>
+<section><h2>Registros</h2><p class="hint np">Toque em um registro para selecioná-lo.</p><div class="bar np" id="acts" hidden style="margin:0 0 10px"><button id="ed">Editar</button><button class="d" id="del">Excluir</button></div><div class="ph" id="ph"></div><div class="tw"><table><thead><tr><th>DATA</th><th>KM SAÍDA</th><th>KM CHEGADA</th><th>HORA SAÍDA</th><th>HORA CHEGADA</th><th>ORIGEM / DESTINO</th><th>NOME MOTORISTA</th><th>VISTO</th><th>FINALIDADE</th><th>USUÁRIO</th><th>KM RODADO</th></tr></thead><tbody id="tb"></tbody><tfoot><tr><td colspan="10" style="text-align:right">Total (KM rodado)</td><td id="tot">0</td></tr></tfoot></table></div>
+<label style="margin-top:10px">Observações<textarea id="obs" rows="3"></textarea></label>
+<div class="bar np"><button class="s" id="inst" hidden>Instalar aplicativo</button></div>
+<p class="hint np" id="ios" hidden>iPhone: toque em Compartilhar e depois em “Adicionar à Tela de Início”.</p></section>
+</div>
+<div id="t_a" hidden>
+<section class="np"><h2 id="aft">Novo abastecimento</h2><div class="g">
+<label>Veículo<select id="a_vid"></select></label><label>Data<input id="a_data" type="date"></label><label>Horário<input id="a_hora" type="time"></label>
+<label>KM do veículo (opcional)<input id="a_km" type="number" inputmode="numeric" min="0"></label><label>Posto de combustível (se aplicável)<input id="a_posto" type="text" list="postos" autocomplete="off" placeholder="Selecione ou digite o nome do posto"></label><div class="w bar" id="a_chips" style="margin:-4px 0 0"></div><datalist id="postos"></datalist>
+<label>Combustível (opcional)<select id="a_comb"><option>Gasolina</option><option>Etanol</option><option>Diesel</option><option>GNV</option><option>Outro</option></select></label>
+<label>Valor total pago (R$)<input id="a_tot" type="text" inputmode="decimal" autocomplete="off" placeholder="ex.: 300,00"></label><label>Preço por litro (R$/L)<input id="a_prec" type="text" inputmode="decimal" autocomplete="off" placeholder="ex.: 6,00"></label>
+<label>Litros (calculado)<input id="a_lit" type="text" readonly tabindex="-1" style="background:#eceefa;font-weight:bold"></label>
+<label class="w">Viagem relacionada (opcional)<select id="a_tid"></select></label><label class="w">Observações<input id="a_obs" type="text"></label></div>
+<div class="err" id="aerr"></div><div class="bar"><button id="a_add">Salvar abastecimento</button><button class="s" id="a_cancel" hidden>Cancelar edição</button></div></section>
+<section><h2>Consulta de abastecimentos</h2><div class="g"><label>Data inicial<input id="q_ini" type="date"></label><label>Data final<input id="q_fim" type="date"></label><label>Veículo<select id="q_vid"></select></label><label>Posto<input id="q_posto" type="text" list="postos" autocomplete="off" placeholder="contém…"></label>
+<label>Combustível<select id="q_comb"><option value="">Todos</option><option>Gasolina</option><option>Etanol</option><option>Diesel</option><option>GNV</option><option>Outro</option></select></label>
+<label>Modalidade<select id="q_mod"><option value="">Todas</option><option value="avulso">Avulso / vinculado a viagem</option><option value="req">Requisição Masters</option><option value="func">Pago pelo funcionário</option></select></label></div>
+<div class="cards" id="asum" style="margin:10px 0"></div><p class="hint">Toque em um abastecimento para ver os detalhes.</p>
+<div class="bar" id="aacts" hidden style="margin:0 0 10px"><button id="a_ed">Editar abastecimento</button><button class="d" id="a_del">Excluir abastecimento</button></div><p id="adet" class="hint"></p>
+<div class="tw"><table style="min-width:700px"><thead><tr><th>DATA</th><th>HORÁRIO</th><th>VEÍCULO / PLACA</th><th>KM</th><th>POSTO</th><th>MODALIDADE</th><th>LITROS</th><th>R$ / LITRO</th><th>TOTAL</th></tr></thead><tbody id="atb"></tbody></table></div></section></div>
+<div id="t_e" hidden><section class="np"><h2>Período da Exportação</h2><div class="g"><label>Data inicial<input id="e_ini" type="date"></label><label>Data final<input id="e_fim" type="date"></label><label>Veículo<select id="e_vid"></select></label></div>
+<div class="bar" id="atalhos"><button class="s" data-a="h">Hoje</button><button class="s" data-a="s7">Últimos 7 dias</button><button class="s" data-a="s30">Últimos 30 dias</button><button class="s" data-a="mes">Este mês</button><button class="s" data-a="ant">Mês anterior</button><button class="s" data-a="todo">Todo o período</button></div>
+<p id="e_prev" class="hint" style="font-size:14px"></p><div class="err" id="e_err"></div>
+<div class="bar"><button id="xl">Exportar Excel</button><button class="s" id="pr">Exportar PDF</button><button class="s" id="csv">Exportar CSV</button><button class="s" id="importar">Importar CSV do telefone</button><input id="arquivo-importacao" type="file" accept=".csv,text/csv" hidden></div>
+<p class="hint">Importe o CSV gerado pela opção “Exportar CSV” do Diário de Bordo no telefone. A importação acrescenta registros, identifica possíveis duplicados e não apaga os dados que já estão neste aparelho. PDF: na janela de impressão, escolha “Salvar como PDF”. Excel: um arquivo por veículo.</p></section></div>
+<p class="hint np" style="text-align:center">Versão de desenvolvimento 14 · auditoria de vínculos</p></main><dialog id="switch-dialog" style="width:min(94vw,420px);padding:18px"><h2 style="margin-top:0">Trocar de Veículo</h2><p>Confirme qual veículo você está utilizando agora. Os próximos registros serão vinculados a ele.</p><label>Novo veículo<select id="switch-to" style="width:100%;padding:9px;margin-top:4px;font:inherit"></select></label><div id="switch-error" class="err"></div><div class="bar"><button type="button" class="s" id="switch-cancel">Cancelar</button><button type="button" id="switch-confirm">Confirmar troca</button></div></dialog><dialog id="vehicle-dialog" style="width:min(94vw,460px);padding:18px"><h2 style="margin-top:0">Cadastrar veículo</h2><div class="g"><label>Identificação do veículo *<input id="nv-nome" placeholder="Ex.: Mobi Branco" maxlength="60"></label><label>Modelo *<input id="nv-modelo" placeholder="Ex.: Fiat Mobi Like" maxlength="80"></label><label>Placa (opcional)<input id="nv-placa" placeholder="Pode informar depois" maxlength="10" autocapitalize="characters"></label><label>Quilometragem atual *<input id="nv-km" type="number" min="0" step="1" placeholder="Ex.: 45230"></label></div><p class="hint">O veículo recebe um identificador interno. A placa poderá ser adicionada ou alterada depois.</p><div id="nv-erro" class="err"></div><div class="bar"><button type="button" class="s" id="nv-cancelar">Cancelar</button><button type="button" id="nv-salvar">Cadastrar veículo</button></div></dialog>
+<dialog id="dlg"><p id="dlgp">Deseja realmente excluir este registro? Esta ação poderá afetar o histórico de quilometragem e os relatórios exportados.</p><div class="bar"><button class="s" id="dn">Cancelar</button><button class="d" id="dy">Confirmar exclusão</button></div></dialog><div id="pv"></div>
+<script src="vendor/jszip.min.js"></script>
+<script>
+const K='masters-diario-v1',$=s=>document.querySelector(s),uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,12)),
+dk=v=>{if(v==null)return'';if(typeof v==='string')return v;if(typeof v.toDate==='function'){try{return v.toDate().toISOString().slice(0,10)}catch(e){return''}}if(v instanceof Date)return isNaN(v)?'':v.toISOString().slice(0,10);return String(v)},
+hk=v=>v==null?'':String(v),ckey=(d,h)=>dk(d)+' '+hk(h);
+let S=JSON.parse(localStorage.getItem(K)||'null')||{};
+if(S.h){const id=uid(),h=S.h;S={veics:[{id,veiculo:h.veiculo||'',placa:h.placa||'',kmFinal:h.kmFinal||'',dIni:h.dIni||'',dFim:h.dFim||'',kmOleo:h.kmOleo||'',dOleo:h.dOleo||'',obs:S.obs||''}],ativo:id,r:(S.r||[]).map(r=>({...r,id:uid(),vid:id}))}}
+if(!S.veics){const id=uid();S={veics:[{id,veiculo:'FIAT MOBI',placa:'TYD5C39',obs:''}],ativo:id,r:[]}}
+if(!S.ab)S.ab=[];
+let sel=null,ed=null;const npl=x=>String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,''),vOk=v=>!window.mastersVidValido||window.mastersVidValido(v);const own=()=>({uid:window.mastersCurrentUser?.uid||'',usuarioRegistro:window.mastersProfile?.usuario||'',criadoEm:new Date().toISOString()});
+const save=()=>{localStorage.setItem(K,JSON.stringify(S));if(!window.__mastersApplyingCloud)window.dispatchEvent(new Event('masters-local-save'))},V=()=>S.veics.find(v=>v.id==S.ativo)||S.veics[0];
+const RS=()=>S.r.map((r,i)=>[r,i]).filter(x=>x[0].vid==V().id).sort((a,b)=>ckey(a[0].data,a[0].hS).localeCompare(ckey(b[0].data,b[0].hS))||a[1]-b[1]).map(x=>x[0]);
+const ult=()=>{const l=RS().filter(r=>Number.isFinite(r.kmC)).at(-1);return l?l.kmC:null};
+const H=[['veiculo','Veículo','text'],['placa','Placa','text'],['kmFinal','Km Final','number'],['dIni','Data Início','date'],['dFim','Data Final','date'],['kmOleo','KM Troca Óleo','number'],['dOleo','Data Troca Óleo','date']];
+const F=[['data','Data','date'],['kmS','KM saída','number'],['kmC','KM chegada','number'],['hS','Hora saída','time'],['hC','Hora chegada','time'],['od','Origem / Destino','text','w'],['mot','Nome do motorista (legível)','text'],['fin','Finalidade','text'],['usu','Usuário','text']];
+const fd=d=>{d=dk(d);const m=d.match(/^(\d{4})-(\d{2})-(\d{2})/);return m?m[3]+'/'+m[2]+'/'+m[1]:d},km=r=>(r.kmS!==''&&r.kmC!==''&&r.kmS!=null&&r.kmC!=null)?r.kmC-r.kmS:null;
+const esc=t=>String(t??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+$('#hf').innerHTML=H.map(([k,l,t])=>`<label>${l}<input id="h_${k}" type="${t}" inputmode="${t=='number'?'numeric':''}"></label>`).join('');
+$('#rf').innerHTML=F.map(([k,l,t,w])=>`<label class="${w||''}">${l}<input id="f_${k}" type="${t}" ${t=='number'?'inputmode="numeric" min="0"':''}></label>`).join('');
+const vopts=()=>S.veics.map(v=>`<option value="${v.id}">${esc(v.veiculo)}${v.modelo?' ('+esc(v.modelo)+')':''} – ${esc(v.placa||'placa não informada')}</option>`).join('');
+function sv(){const k=['q_vid','e_vid','a_vid'].map(i=>$('#'+i).value);$('#vsel').innerHTML=vopts();$('#vsel').value=S.ativo;$('#f_vid').innerHTML=vopts();$('#a_vid').innerHTML=vopts();$('#q_vid').innerHTML='<option value="">Todos</option>'+vopts();$('#e_vid').innerHTML='<option value="">Todos os veículos</option>'+vopts();
+ ['q_vid','e_vid','a_vid'].forEach((i,n)=>{if(k[n]===''||(k[n]&&S.veics.some(v=>v.id==k[n])))$('#'+i).value=k[n]});tripOpts()}
+function fillH(){H.forEach(([k])=>$('#h_'+k).value=V()[k]||'');$('#obs').value=V().obs||''}
+H.forEach(([k])=>{$('#h_'+k).oninput=e=>{V()[k]=e.target.value;save();if(k=='veiculo'||k=='placa'){const x=$('#vsel').value;sv();$('#vsel').value=x}head()}});
+$('#obs').oninput=e=>{V().obs=e.target.value;save()};
+$('#vsel').onchange=e=>{e.target.value=S.ativo};
+$('#switch-vehicle').onclick=()=>{const sel=$('#switch-to');sel.innerHTML=vopts();sel.value=S.ativo;$('#switch-error').textContent='';$('#switch-dialog').showModal()};
+$('#switch-cancel').onclick=()=>$('#switch-dialog').close();
+$('#switch-confirm').onclick=async()=>{const novo=String($('#switch-to').value);if(!novo||!S.veics.some(v=>v.id===novo)){ $('#switch-error').textContent='Selecione um veículo cadastrado.';return;}if(novo===String(S.ativo)){$('#switch-dialog').close();return;}const anterior=V(),destino=S.veics.find(v=>v.id===novo);const km=prompt(`Informe a quilometragem de liberação do ${anterior.veiculo}:`);if(km===null)return;if(km.trim()===''||!Number.isFinite(Number(km))||Number(km)<0){$('#switch-error').textContent='Informe uma quilometragem válida.';return;}const btn=$('#switch-confirm');btn.disabled=true;try{await window.mastersRunTransaction(async tx=>{const oldRef=window.mastersDoc('reservas',String(S.ativo)),newRef=window.mastersDoc('reservas',novo);const oldSnap=await tx.get(oldRef),newSnap=await tx.get(newRef);if(!oldSnap.exists()||oldSnap.data().status!=='ativa'||oldSnap.data().uid!==window.mastersCurrentUser.uid)throw new Error('Você precisa estar com o veículo atual reservado em seu nome.');if(newSnap.exists()&&newSnap.data().status==='ativa')throw new Error('O veículo escolhido já está reservado por outro funcionário.');tx.update(oldRef,{status:'liberada',liberadoEm:window.mastersServerTimestamp(),kmLiberacao:Number(km),liberadoPor:window.mastersCurrentUser.uid,liberadoPorUsuario:window.mastersProfile.usuario||'',liberacaoAdministrativa:false,justificativa:'Troca de veículo'});tx.set(window.mastersDoc(window.mastersCollection('historico_reservas')),{...oldSnap.data(),veiculoId:String(S.ativo),status:'liberada',kmLiberacao:Number(km),liberadoPor:window.mastersCurrentUser.uid,liberadoPorUsuario:window.mastersProfile.usuario||'',liberacaoAdministrativa:false,justificativa:'Troca de veículo',registradoEm:window.mastersServerTimestamp()});tx.set(newRef,{uid:window.mastersCurrentUser.uid,usuario:window.mastersProfile.usuario||'Funcionário',vehicleId:novo,veiculo:destino.veiculo||'',status:'ativa',inicio:window.mastersServerTimestamp(),criadoEm:window.mastersServerTimestamp(),liberadoEm:null,justificativa:''});});S.ativo=novo;save();$('#switch-dialog').close();sel=null;fillH();draw();clr();aclr();$('#vsel').value=novo;$('#a_vid').value=novo;}catch(e){$('#switch-error').textContent=e.message||'Não foi possível trocar o veículo.';}finally{btn.disabled=false;}};
+$('#nv').onclick=()=>{['nv-nome','nv-modelo','nv-placa','nv-km'].forEach(id=>$('#'+id).value='');$('#nv-erro').textContent='';$('#vehicle-dialog').showModal()};
+$('#nv-cancelar').onclick=()=>$('#vehicle-dialog').close();
+$('#nv-salvar').onclick=()=>{const nome=$('#nv-nome').value.trim(),modelo=$('#nv-modelo').value.trim(),placa=$('#nv-placa').value.trim().toUpperCase(),kmAtual=$('#nv-km').value.trim();let erro='';if(!nome)erro='Informe uma identificação para o veículo.';else if(!modelo)erro='Informe o modelo do veículo.';else if(kmAtual===''||!Number.isFinite(Number(kmAtual))||Number(kmAtual)<0)erro='Informe a quilometragem atual válida.';else if(placa&&S.veics.some(v=>npl(v.placa)===npl(placa)))erro='Já existe um veículo cadastrado com essa placa.';$('#nv-erro').textContent=erro;if(erro)return;const id=uid();S.veics.push({id,veiculo:nome,modelo,placa,kmAtual:Number(kmAtual),obs:''});S.ativo=id;save();$('#vehicle-dialog').close();sel=null;sv();fillH();draw();clr()};
+function head(){const v=V();$('#ph').innerHTML=`<b>Veículo:</b> ${esc(v.veiculo)} &nbsp; <b>Placa:</b> ${esc(v.placa)} &nbsp; <b>Km Final:</b> ${esc(v.kmFinal)} &nbsp; <b>Período:</b> ${fd(v.dIni)} a ${fd(v.dFim)} &nbsp; <b>KM Troca Óleo:</b> ${esc(v.kmOleo)} &nbsp; <b>Data Troca Óleo:</b> ${fd(v.dOleo)}`}
+function draw(){let t=0;const R=RS();if(sel&&!R.some(r=>r.id==sel))sel=null;
+ $('#tb').innerHTML=R.map(r=>{const k=km(r);if(k>0)t+=k;return `<tr class="r${r.id==sel?' sel':''}" data-id="${r.id}"><td>${fd(r.data)}</td><td>${esc(r.kmS)}</td><td>${esc(r.kmC)}</td><td>${esc(r.hS)}</td><td>${esc(r.hC)}</td><td>${esc(r.od)}</td><td>${esc(r.mot)}</td><td>${r.visto?'✔':''}</td><td>${esc(r.fin)}</td><td>${esc(r.usu)}</td><td>${k??''}</td></tr>`}).join('')||'<tr><td colspan="11">Nenhum registro.</td></tr>';
+ $('#tot').textContent=t;$('#acts').hidden=!sel||!window.mastersCanManageRecord?.(S.r.find(r=>r.id==sel));head()}
+$('#tb').onclick=e=>{const tr=e.target.closest('tr.r');if(!tr)return;sel=sel==tr.dataset.id?null:tr.dataset.id;draw()};
+function clr(){F.forEach(([k])=>$('#f_'+k).value='');$('#visto').checked=false;ed=null;$('#lv').hidden=true;$('#ft').textContent='Novo registro';$('#cancel').hidden=true;$('#add').textContent='Salvar registro';$('#err').textContent='';
+ const l=RS().at(-1),u=ult();if(u!=null)$('#f_kmS').value=u;else if(V()&&V().kmAtual!=null)$('#f_kmS').value=V().kmAtual;if(l)['mot','usu'].forEach(k=>$('#f_'+k).value=l[k]||'');$('#f_data').value=new Date().toLocaleDateString('sv')}
+$('#ed').onclick=()=>{const r=S.r.find(x=>x.id==sel);if(!r||!window.mastersCanManageRecord?.(r))return;F.forEach(([k])=>$('#f_'+k).value=r[k]??'');$('#visto').checked=!!r.visto;ed=r.id;$('#f_vid').value=r.vid;$('#lv').hidden=false;$('#ft').textContent='Editando registro';$('#cancel').hidden=false;$('#add').textContent='Salvar alterações';$('#err').textContent='';scrollTo(0,0)};
+let dcb=null;const ask=(m,cb)=>{$('#dlgp').textContent=m;dcb=cb;$('#dlg').showModal()};
+$('#del').onclick=()=>{const target=S.r.find(x=>x.id==sel);if(!window.mastersCanManageRecord?.(target))return;ask('Deseja realmente excluir este registro? Esta ação poderá afetar o histórico de quilometragem e os relatórios exportados.',()=>{S.__pendingDeletes=S.__pendingDeletes||[];S.__pendingDeletes.push({collection:'viagens',id:String(sel)});S.ab.forEach(a=>{if(a.tid==sel)a.tid=''});S.r=S.r.filter(x=>x.id!=sel);sel=null;save();draw();if(ed==null)clr()});};
+$('#dn').onclick=()=>$('#dlg').close();$('#dy').onclick=()=>{$('#dlg').close();dcb&&dcb()};
+$('#cancel').onclick=clr;
+$('#add').onclick=()=>{if(!ed&&!window.mastersCanUseVehicle?.()){ $('#err').textContent='Antes de registrar uma viagem, assuma o veículo selecionado.';return;}const r={visto:$('#visto').checked,id:ed||uid(),vid:ed?$('#f_vid').value:V().id,uid:ed?(S.r.find(x=>x.id==ed)?.uid||window.mastersCurrentUser?.uid||''):(window.mastersCurrentUser?.uid||''),usuarioRegistro:ed?(S.r.find(x=>x.id==ed)?.usuarioRegistro||window.mastersProfile?.usuario||''):(window.mastersProfile?.usuario||''),criadoEm:ed?(S.r.find(x=>x.id==ed)?.criadoEm||null):new Date().toISOString()};F.forEach(([k,,t])=>{const v=$('#f_'+k).value.trim();r[k]=t=='number'&&v!==''?Number(v):v});
+ let e='';if(!vOk(r.vid))e='Veículo ainda não sincronizado ou inválido. Aguarde alguns segundos e tente de novo.';else if(!r.data)e='Informe a data.';else if(r.kmS===''||r.kmC==='')e='Informe KM de saída e de chegada.';else if(r.kmC<r.kmS)e='KM de chegada não pode ser menor que o KM de saída.';else if(!r.od)e='Informe origem / destino.';
+ $('#err').textContent=e;if(e)return;
+ if(!ed){const u=ult();if(u!=null&&r.kmS!==u){const j=prompt(`O KM de saída (${r.kmS}) difere do último KM de chegada deste veículo (${u}).\nInforme uma justificativa (opcional) e toque em OK para salvar, ou Cancelar para corrigir:`);if(j===null)return;if(j.trim())r.just=j.trim()}}
+ else{const o=S.r.find(x=>x.id==ed);if(o&&o.just)r.just=o.just}
+ ed?S.r[S.r.findIndex(x=>x.id==ed)]=r:S.r.push(r);S.ab.forEach(a=>{if(a.tid==r.id&&a.vid!=r.vid)a.tid=''});save();sel=null;draw();clr()};
+const rows=()=>RS().map(r=>[fd(r.data),r.kmS,r.kmC,r.hS,r.hC,r.od,r.mot,r.visto?'OK':'',r.fin,r.usu]);
+const HD=['DATA','KM SAÍDA','KM CHEGADA','HORA SAÍDA','HORA CHEGADA','ORIGEM / DESTINO','NOME MOTORISTA (legível)','VISTO MOTORISTA','FINALIDADE','USUÁRIO'];
+function dl(b,n){const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=n;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),4000)}
+const nm=()=>`diario-bordo-${(V().placa||'veiculo').replace(/\W/g,'')}-${new Date().toLocaleDateString('sv')}`;
+
+const hoje=()=>new Date().toLocaleDateString('sv'),ds=d=>d.toLocaleDateString('sv'),inP=(d,i,f)=>{d=dk(d).slice(0,10);return(!i||d>=i)&&(!f||d<=f)};
+const money=n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),lit=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const TR=(vid,i,f)=>S.r.map((r,k)=>[r,k]).filter(x=>x[0].vid==vid&&inP(x[0].data,i,f)).sort((a,b)=>ckey(a[0].data,a[0].hS).localeCompare(ckey(b[0].data,b[0].hS))||a[1]-b[1]).map(x=>x[0]);
+const FU=(vid,i,f)=>S.ab.filter(a=>(!vid||a.vid==vid)&&inP(a.data,i,f)).sort((a,b)=>ckey(a.data,a.hora).localeCompare(ckey(b.data,b.hora))),vl=id=>{const v=S.veics.find(x=>x.id==id);return v?v.veiculo+' – '+v.placa:'?'};
+function itens(o){const ids=new Set(o.t.map(r=>r.id)),by={};o.a.forEach(a=>{if(a.tid&&ids.has(a.tid))(by[a.tid]=by[a.tid]||[]).push(a)});
+ const R=o.t.map(r=>({t:r,f:by[r.id]||[]}));o.a.filter(a=>!(a.tid&&ids.has(a.tid))).forEach(a=>R.push({t:null,f:[a]}));return R}
+function show(t){['d','a','e'].forEach(k=>$('#t_'+k).hidden=k!=t);document.querySelectorAll('#tabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==t));if(t=='a')alist();if(t=='e')prev();scrollTo(0,0)}
+document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>show(b.dataset.t));
+let selA=null,eda=null;
+function tripOpts(){const v=$('#a_vid').value,k=$('#a_tid').value;$('#a_tid').innerHTML='<option value="">Nenhuma (abastecimento avulso)</option><option value="mod:req">Requisição de combustível Masters</option><option value="mod:func">Abastecimento pago pelo Funcionário</option>'+TR(v,'','').map(r=>`<option value="${r.id}">${fd(r.data)} — ${esc(r.od)}</option>`).join('');$('#a_tid').value=k}
+$('#a_vid').onchange=()=>{if(!eda)$('#a_vid').value=S.ativo;tripOpts()};
+function aclr(){pl();['km','posto','lit','prec','tot','obs'].forEach(k=>$('#a_'+k).value='');$('#a_vid').value=S.ativo;tripOpts();$('#a_tid').value='';$('#a_data').value=hoje();$('#a_hora').value=new Date().toTimeString().slice(0,5);eda=null;$('#aft').textContent='Novo abastecimento';$('#a_cancel').hidden=true;$('#a_add').textContent='Salvar abastecimento';$('#aerr').textContent=''}
+const pbr=v=>{v=String(v??'').replace(/R\$|\s/g,'');if(v==='')return NaN;if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');else if((v.match(/\./g)||[]).length>1)v=v.replace(/\./g,'');return /^-?(\d+\.?\d*|\.\d+)$/.test(v)?Number(v):NaN};
+const br=(n,d)=>Number(n).toFixed(d).replace('.',','),moneyP=n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:3});
+function chk(){const T=$('#a_tot').value.trim(),P=$('#a_prec').value.trim(),t=pbr(T),p=pbr(P);
+ if(T==='')return{e:'Informe o valor total pago (R$).'};if(P==='')return{e:'Informe o preço por litro (R$/L).'};
+ if(isNaN(t))return{e:'Valor total pago inválido. Use números, por exemplo 300,00.'};if(isNaN(p))return{e:'Preço por litro inválido. Use números, por exemplo 6,00.'};
+ if(!(t>0))return{e:'O valor total pago deve ser maior que zero.'};if(!(p>0))return{e:'O preço por litro deve ser maior que zero.'};
+ const l=Math.round(t/p*100)/100;if(!(l>0))return{e:'O valor pago é pequeno demais para o preço informado (litros = 0).'};return{t,p,l}}
+function calc(){const r=chk();$('#a_lit').value=r.l?br(r.l,2):'';$('#aerr').textContent=r.e&&!r.e.startsWith('Informe')?r.e:''}
+['a_tot','a_prec'].forEach(i=>$('#'+i).oninput=calc);
+$('#a_add').onclick=()=>{if(!eda&&!window.mastersCanUseVehicle?.()){ $('#aerr').textContent='Antes de registrar um abastecimento, assuma o veículo selecionado.';return;}const g=k=>$('#a_'+k).value.trim(),r=chk(),kmv=g('km')===''?null:Number(g('km'));
+ const a={id:eda||uid(),uid:eda?(S.ab.find(x=>x.id==eda)?.uid||window.mastersCurrentUser?.uid||''):(window.mastersCurrentUser?.uid||''),usuarioRegistro:eda?(S.ab.find(x=>x.id==eda)?.usuarioRegistro||window.mastersProfile?.usuario||''):(window.mastersProfile?.usuario||''),criadoEm:eda?(S.ab.find(x=>x.id==eda)?.criadoEm||null):new Date().toISOString(),vid:eda?g('vid'):String(S.ativo),data:g('data'),hora:g('hora'),km:kmv,posto:g('posto'),comb:g('comb'),litros:r.l,preco:r.p,total:r.t,tid:g('tid').startsWith('mod:')?'':g('tid'),mod:g('tid').startsWith('mod:')?g('tid').slice(4):'',obs:g('obs')};
+ let e='';if(!a.vid)e='Selecione o veículo.';else if(!vOk(a.vid))e='Veículo ainda não sincronizado ou inválido. Aguarde alguns segundos.';else if(!a.data||!a.hora)e='Informe data e horário.';else if(r.e)e=r.e;else if(a.km!==null&&!(a.km>=0))e='A quilometragem deve ser 0 ou maior.';
+ $('#aerr').textContent=e;if(e)return;
+ if(a.tid){const t=S.r.find(x=>x.id==a.tid);if(!t||t.vid!=a.vid)a.tid=''}
+ eda?S.ab[S.ab.findIndex(x=>x.id==eda)]=a:S.ab.push(a);save();selA=null;aclr();alist()};
+$('#a_cancel').onclick=aclr;
+const MOD={'':'Avulso',req:'Requisição Masters',func:'Pago pelo funcionário'},modTxt=a=>{const t=a.tid&&S.r.find(x=>x.id==a.tid);return t?'Viagem '+fd(t.data):(MOD[a.mod||'']||'Avulso')};
+const POSTO_PADRAO='Posto Atem - Posto Distrito II';
+function postos(){const m=new Map();m.set(POSTO_PADRAO.toLowerCase(),POSTO_PADRAO);S.ab.slice().sort((a,b)=>ckey(b.data,b.hora).localeCompare(ckey(a.data,a.hora))).forEach(a=>{const n=(a.posto||'').trim();if(n&&!m.has(n.toLowerCase()))m.set(n.toLowerCase(),n)});return[...m.values()]}
+function pl(){const L=postos();$('#postos').innerHTML=L.map(n=>`<option value="${esc(n)}">`).join('');$('#a_chips').innerHTML=L.slice(0,4).map(n=>`<button type="button" class="s" data-p="${esc(n)}" style="padding:6px 10px;font-size:13px">${esc(n)}</button>`).join('')}
+$('#a_chips').onclick=e=>{const b=e.target.closest('button[data-p]');if(b)$('#a_posto').value=b.dataset.p};
+function alist(){pl();const m=$('#q_mod').value,i=$('#q_ini').value,f=$('#q_fim').value,v=$('#q_vid').value,p=$('#q_posto').value.trim().toLowerCase(),c=$('#q_comb').value;
+ const R=FU(v,i,f).filter(a=>(!p||(a.posto||'').toLowerCase().includes(p))&&(!c||a.comb==c)&&(!m||(m=='avulso'?!a.mod:a.mod==m))).reverse();if(selA&&!R.some(a=>a.id==selA))selA=null;
+ $('#atb').innerHTML=R.map(a=>`<tr class="r${a.id==selA?' sel':''}" data-id="${a.id}"><td>${fd(a.data)}</td><td>${esc(a.hora)}</td><td>${esc(vl(a.vid))}</td><td>${a.km??''}</td><td>${esc(a.posto)}</td><td>${esc(modTxt(a))}</td><td>${lit(a.litros)}</td><td>${moneyP(a.preco)}</td><td>${money(a.total)}</td></tr>`).join('')||'<tr><td colspan="9">Nenhum abastecimento.</td></tr>';
+ const L=R.reduce((q,a)=>q+a.litros,0),T=R.reduce((q,a)=>q+a.total,0);
+ $('#asum').innerHTML=`<div class="cd">Abastecimentos<b>${R.length}</b></div><div class="cd">Total de litros<b>${lit(L)}</b></div><div class="cd">Valor total gasto<b>${money(T)}</b></div><div class="cd">Mais recente<b>${R[0]?fd(R[0].data)+' às '+R[0].hora:'—'}</b></div>`;
+ const a=R.find(x=>x.id==selA),t=a&&a.tid&&S.r.find(x=>x.id==a.tid);$('#aacts').hidden=!a||!window.mastersCanManageRecord?.(a);$('#adet').innerHTML=a?`<b>${esc(vl(a.vid))}</b> — ${fj(a)} ${esc(a.comb)}; ${lit(a.litros)} L a ${moneyP(a.preco)}/L${a.km!=null?'; KM '+a.km:''}; modalidade: ${esc(modTxt(a))}; posto: ${esc(a.posto)||'não informado'}${t?'; viagem: '+fd(t.data)+' '+esc(t.od):''}${a.obs?'; obs.: '+esc(a.obs):''}`:''}
+['q_ini','q_fim','q_vid','q_posto','q_comb','q_mod'].forEach(i=>$('#'+i).oninput=alist);
+$('#atb').onclick=e=>{const tr=e.target.closest('tr.r');if(!tr)return;selA=selA==tr.dataset.id?null:tr.dataset.id;alist()};
+$('#a_ed').onclick=()=>{const a=S.ab.find(x=>x.id==selA);if(!a||!window.mastersCanManageRecord?.(a))return;$('#a_vid').value=a.vid;tripOpts();$('#a_tid').value=a.tid||(a.mod?'mod:'+a.mod:'');$('#a_data').value=a.data;$('#a_hora').value=a.hora;$('#a_km').value=a.km??'';$('#a_posto').value=a.posto;$('#a_comb').value=a.comb;$('#a_prec').value=br(a.preco,String(a.preco).split('.')[1]?.length>2?3:2);$('#a_tot').value=br(a.total,2);calc();$('#a_obs').value=a.obs||'';eda=a.id;$('#aft').textContent='Editando abastecimento';$('#a_cancel').hidden=false;$('#a_add').textContent='Salvar alterações';$('#aerr').textContent='';scrollTo(0,0)};
+$('#a_del').onclick=()=>{const target=S.ab.find(x=>x.id==selA);if(!window.mastersCanManageRecord?.(target))return;ask('Deseja realmente excluir este abastecimento? Esta ação poderá afetar os relatórios exportados.',()=>{S.__pendingDeletes=S.__pendingDeletes||[];S.__pendingDeletes.push({collection:'abastecimentos',id:String(selA)});S.ab=S.ab.filter(x=>x.id!=selA);selA=null;save();if(eda==null)aclr();alist()});};
+const AT={h:()=>[hoje(),hoje()],s7:()=>{const d=new Date();d.setDate(d.getDate()-6);return[ds(d),hoje()]},s30:()=>{const d=new Date();d.setDate(d.getDate()-29);return[ds(d),hoje()]},mes:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m,1)),ds(new Date(y,m+1,0))]},ant:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m-1,1)),ds(new Date(y,m,0))]},todo:()=>['','']};
+document.querySelectorAll('#atalhos button').forEach(b=>b.onclick=()=>{[$('#e_ini').value,$('#e_fim').value]=AT[b.dataset.a]();prev()});
+function EX(){const i=$('#e_ini').value,f=$('#e_fim').value,vid=$('#e_vid').value;const e=i&&f&&i>f?'A data inicial deve ser anterior ou igual à data final.':'';return{i,f,e,L:(vid?S.veics.filter(v=>v.id==vid):S.veics).map(v=>({v,t:TR(v.id,i,f),a:FU(v.id,i,f)}))}}
+function prev(){const x=EX();$('#e_err').textContent=x.e;$('#e_prev').innerHTML=x.e?'':x.L.map(o=>`<b>${esc(o.v.veiculo)} – ${esc(o.v.placa)}</b>: ${o.t.length} viagem(ns) e ${o.a.length} abastecimento(s) serão exportados`).join('<br>')}
+['e_ini','e_fim','e_vid'].forEach(i=>$('#'+i).oninput=prev);
+const nmx=x=>`diario-bordo-${x.i||'inicio'}_${x.f||'fim'}`,vaz=x=>{const L=x.L.filter(o=>o.t.length||o.a.length);if(!L.length)alert('Nenhum registro no período selecionado. Nada foi gerado.');return L};
+$('#csv').onclick=()=>{const x=EX();if(x.e)return;const L=vaz(x);if(!L.length)return;const q=v=>`"${String(v??'').replace(/"/g,'""')}"`,R=[['Veículo','Placa',...HD,'KM RODADO']];
+ L.forEach(o=>o.t.forEach(r=>R.push([o.v.veiculo,o.v.placa,fd(r.data),r.kmS,r.kmC,r.hS,r.hC,r.od,r.mot,r.visto?'OK':'',r.fin,r.usu,km(r)??''])));R.push([],['Abastecimentos'],['Veículo','Placa','Data','Hora','KM','Posto','Combustível','Litros','R$/litro','Total','Obs.','Modalidade']);
+ L.forEach(o=>o.a.forEach(a=>R.push([o.v.veiculo,o.v.placa,fd(a.data),a.hora,a.km,a.posto,a.comb,a.litros,a.preco,a.total,a.obs,modTxt(a)])));dl(new Blob(['\ufeff'+R.map(l=>l.map(q).join(';')).join('\r\n')],{type:'text/csv'}),nmx(x)+'.csv')};
+// Importação de CSV exportado pelo Diário de Bordo (não substitui os dados locais)
+$('#importar').onclick=()=>$('#arquivo-importacao').click();
+function csvLer(txt){
+ const linhas=[];let linha=[],campo='',aspas=false;
+ for(let i=0;i<txt.length;i++){const c=txt[i];if(c==='"'){if(aspas&&txt[i+1]==='"'){campo+='"';i++}else aspas=!aspas}
+ else if(c===';'&&!aspas){linha.push(campo);campo=''}
+ else if((c==='\n'||c==='\r')&&!aspas){if(c==='\r'&&txt[i+1]==='\n')i++;linha.push(campo);if(linha.some(v=>v.trim()!==''))linhas.push(linha);linha=[];campo=''}else campo+=c}
+ linha.push(campo);if(linha.some(v=>v.trim()!==''))linhas.push(linha);return linhas;
+}
+const impData=v=>{v=String(v||'').trim();if(/^\d{4}-\d{2}-\d{2}$/.test(v))return v;const m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:''};
+const impNum=v=>{v=String(v??'').trim();if(!v)return null;if(v.includes(','))v=v.replace(/\./g,'').replace(',','.');const n=Number(v);return Number.isFinite(n)?n:null};
+const chaveViagem=(r,placa)=>[placa,r.data,r.kmS,r.kmC,r.hS,r.hC,r.od,r.mot].join('|').toLowerCase();
+const chaveAb=(a,placa)=>[placa,a.data,a.hora,a.km,a.posto,a.total].join('|').toLowerCase();
+$('#arquivo-importacao').onchange=async e=>{
+ const file=e.target.files?.[0];e.target.value='';if(!file)return;
+ try{
+  const linhas=csvLer((await file.text()).replace(/^\uFEFF/,''));let sec='viagens',viagens=[],abasts=[],erros=[];
+  for(const row of linhas){const c=row.map(x=>String(x??'').trim());if(c[0]==='Abastecimentos'){sec='ab';continue}
+   if(sec==='viagens'){
+    if(c[0]==='Veículo'||c[0]==='DATA'||!c[0])continue;
+    if(c.length<12)continue;
+    const data=impData(c[2]||c[0]);if(!data){erros.push('Data inválida em uma viagem');continue}
+    viagens.push({veiculo:c[0],placa:c[1],data,kmS:impNum(c[3]),kmC:impNum(c[4]),hS:c[5],hC:c[6],od:c[7],mot:c[8],visto:/^(OK|SIM|TRUE|1)$/i.test(c[9]),fin:c[10],usu:c[11]});
+   }else{
+    if(c[0]==='Veículo'||c[0]==='Data'||!c[0])continue;
+    if(c.length<10)continue;
+    const data=impData(c[2]);if(!data){erros.push('Data inválida em um abastecimento');continue}
+    const total=impNum(c[9]),preco=impNum(c[8]),litros=impNum(c[7]);if(!(total>0)||!(preco>0)||!(litros>0)){erros.push('Valor, preço ou litros inválidos em um abastecimento');continue}
+    const modalidade=(c[11]||'').toLowerCase();abasts.push({veiculo:c[0],placa:c[1],data,hora:c[3],km:impNum(c[4]),posto:c[5],comb:c[6],litros,preco,total,mod:modalidade.includes('requisição')?'req':modalidade.includes('funcionário')?'func':'',obs:c[10]||''});
+   }
+  }
+  if(!viagens.length&&!abasts.length)throw Error('Não encontrei viagens ou abastecimentos no formato CSV exportado pelo Diário de Bordo.');
+  const novosV=[],adm=!!window.mastersIsAdmin?.(),aut=new Set((window.mastersProfile?.veiculosAutorizados||[]).map(String)),obterV=(nome,placa)=>{let v=[...S.veics,...novosV].find(x=>(npl(placa)&&npl(x.placa)===npl(placa))||(!npl(placa)&&npl(nome)&&npl(x.veiculo)===npl(nome)));if(!v){if(!adm)return null;v={id:uid(),veiculo:nome||'Veículo importado',placa:placa||'',obs:''};novosV.push(v)}else if(!adm&&!aut.has(String(v.id)))return null;return v};
+  const existentesT=new Set(S.r.map(r=>{const v=S.veics.find(x=>x.id===r.vid);return chaveViagem(r,v?.placa||'')}));
+  const existentesA=new Set(S.ab.map(a=>{const v=S.veics.find(x=>x.id===a.vid);return chaveAb(a,v?.placa||'')}));
+  const addT=[],addA=[];let bloq=0;for(const r of viagens){const v=obterV(r.veiculo,r.placa);if(!v){bloq++;continue}const k=chaveViagem(r,v.placa);if(!existentesT.has(k)){addT.push({...r,id:uid(),vid:v.id,...own()});existentesT.add(k)}}
+  for(const a of abasts){const v=obterV(a.veiculo,a.placa);if(!v){bloq++;continue}const k=chaveAb(a,v.placa);if(!existentesA.has(k)){addA.push({...a,id:uid(),vid:v.id,tid:'',...own()});existentesA.add(k)}}
+  const dupT=viagens.length-addT.length,dupA=abasts.length-addA.length;
+  const resumo=`Arquivo: ${file.name}\nEncontrados: ${viagens.length} viagens e ${abasts.length} abastecimentos.\nNovos: ${addT.length} viagens e ${addA.length} abastecimentos.\nIgnorados (duplicados, veículo não cadastrado ou sem autorização): ${dupT} viagens e ${dupA} abastecimentos${bloq?' — '+bloq+' por veículo não cadastrado/sem autorização':''}.\n\nDeseja acrescentar os novos registros? Os dados existentes não serão apagados.`;
+  if(!confirm(resumo))return;
+  S.veics.push(...novosV);S.r.push(...addT);S.ab.push(...addA);if(!S.veics.some(v=>v.id===S.ativo)&&S.veics.length)S.ativo=S.veics[0].id;save();sv();fillH();draw();prev();alert(`Importação concluída!\n${addT.length} viagens e ${addA.length} abastecimentos adicionados.${erros.length?'\nLinhas ignoradas por inconsistência: '+erros.length:''}`);
+ }catch(err){alert('Não foi possível importar o arquivo. '+(err?.message||err))}
+};
+
+const TPL='modelo-diario-de-bordo.xlsx',X=t=>String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/[\r\n]+/g,' '),T=t=>`<t xml:space="preserve">${X(t)}</t>`;
+const RP='<rPr><b/><sz val="7"/><rFont val="Arial"/><family val="2"/></rPr>',R7=t=>`<r>${RP}${T(t)}</r>`;
+function put(x,ref,inner,num){const re=new RegExp(`<c r="${ref}"( s="\\d+")?[^>]*?(/>|>.*?</c>)`,'s');if(!re.test(x))throw Error('Célula '+ref+' não encontrada no modelo');
+ return x.replace(re,(m,s)=>num?`<c r="${ref}"${s||''}><v>${inner}</v></c>`:`<c r="${ref}"${s||''} t="inlineStr"><is>${inner}</is></c>`)}
+const serial=d=>d?Math.round((Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))-Date.UTC(1899,11,30))/864e5):null;
+const TN=t=>`<t xml:space="preserve">${String(t??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</t>`;
+const fj=a=>`${fd(a.data)} — ${a.hora} — ${lit(a.litros)} litros — ${money(a.total)}.`;
+async function gerar(rows,h,obs,per){per=per||{};
+ const z=await JSZip.loadAsync(await (await fetch(TPL)).arrayBuffer());let x=await z.file('xl/worksheets/sheet1.xml').async('string');
+ x=put(x,'A2',T('Veículo: '+(h.veiculo||'')));x=put(x,'C2',`<r>${T('Placa:')}</r>`+R7(' '+(h.placa||'')));
+ x=put(x,'F2',T('Km Final: '+(h.kmFinal??'')));x=put(x,'G2',T('Data Início:  '+fd(per.ini||h.dIni)));x=put(x,'I2',T('Data Final: '+fd(per.fim||h.dFim)));
+ x=put(x,'J1',R7('KM Troca Óleo:')+R7(h.kmOleo!==undefined&&h.kmOleo!==''?' '+h.kmOleo:''));x=put(x,'J2',R7('Data Troca Óleo:')+R7(h.dOleo?' '+fd(h.dOleo):''));
+ let sc=0;rows.forEach((o,i)=>{const n=4+i,r=o.t;
+  if(r){const sd=serial(r.data);if(sd)x=put(x,'A'+n,sd,1);x=put(x,'B'+n,r.kmS,1);x=put(x,'C'+n,r.kmC,1);sc+=r.kmC;
+   [['D',r.hS],['E',r.hC],['F',r.od],['G',r.mot],['H',r.visto?'OK':''],['I',r.fin]].forEach(([c,v])=>{if(v)x=put(x,c+n,T(v))})}
+  if(o.f.length){x=put(x,'J'+n,TN(o.f.map(fj).join('\n')));const L=o.f.reduce((q,a)=>q+Math.ceil(fj(a).length/25),0);if(L>2)x=x.replace(new RegExp(`(<row r="${n}"[^>]*?) ht="24.95"`),`$1 ht="${12.5*L+2}"`)}});
+ x=x.replace('<f>SUM(C4:C22)</f><v>0</v>',`<f>SUM(C4:C22)</f><v>${sc}</v>`);
+ if(obs){const L=obs.split('\n').reduce((q,l)=>q+Math.max(1,Math.ceil(l.length/200)),0);x=x.replace(/(<row r="24"[^>]*?) ht="24"/,`$1 ht="${Math.max(24,12.5*L+6)}"`);
+  x=put(x,'A24',`<r><rPr><b/><sz val="9"/><rFont val="Arial"/><family val="2"/></rPr>${T('Observações: ')}</r><r><rPr><sz val="9"/><rFont val="Arial"/><family val="2"/></rPr>${TN(obs)}</r>`)}
+ z.file('xl/worksheets/sheet1.xml',x,{createFolders:false});
+ let w=await z.file('xl/workbook.xml').async('string');z.file('xl/workbook.xml',w.replace('<calcPr calcId="191029"/>','<calcPr calcId="191029" fullCalcOnLoad="1"/>'),{createFolders:false});
+ return z.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',compression:'DEFLATE'})}
+$('#xl').onclick=async()=>{const x=EX();if(x.e)return;const L=vaz(x);if(!L.length)return;
+ try{const F=[];for(const o of L){const I=itens(o),P=[];for(let k=0;k<Math.max(1,I.length);k+=19)P.push(I.slice(k,k+19));
+  P.forEach(async()=>{});for(let k=0;k<P.length;k++)F.push([`${nmx(x)}-${o.v.placa.replace(/\W/g,'')}${P.length>1?'-parte'+(k+1):''}.xlsx`,await gerar(P[k],o.v,o.v.obs||'',{ini:x.i,fim:x.f})])}
+  if(F.length==1)return dl(F[0][1],F[0][0]);const zz=new JSZip();F.forEach(([n,b])=>zz.file(n,b));dl(await zz.generateAsync({type:'blob'}),nmx(x)+'.zip');alert(`Foram gerados ${F.length} arquivos Excel dentro do .zip (um por veículo e por bloco de 19 linhas).`)}
+ catch(e){alert('Falha ao exportar o Excel: '+e.message)}};
+$('#pr').onclick=()=>{const x=EX();if(x.e)return;const L=vaz(x);if(!L.length)return;
+ $('#pv').innerHTML=L.map(o=>{const v=o.v;let t=0;const rw=o.t.map(r=>{const k=km(r);if(k>0)t+=k;return `<tr class="r"><td>${fd(r.data)}</td><td>${esc(r.kmS)}</td><td>${esc(r.kmC)}</td><td>${esc(r.hS)}</td><td>${esc(r.hC)}</td><td>${esc(r.od)}</td><td>${esc(r.mot)}</td><td>${r.visto?'✔':''}</td><td>${esc(r.fin)}</td><td>${esc(r.usu)}</td><td>${k??''}</td></tr>`}).join('')||'<tr><td colspan="11">Sem viagens no período.</td></tr>';
+ return `<div class="pg"><img src="logo-masters.svg" style="height:30px"><h3>Controle de Utilização Veículo</h3><p><b>Veículo:</b> ${esc(v.veiculo)} &nbsp; <b>Placa:</b> ${esc(v.placa)} &nbsp; <b>Km Final:</b> ${esc(v.kmFinal)} &nbsp; <b>Período:</b> ${fd(x.i||v.dIni)} a ${fd(x.f||v.dFim)} &nbsp; <b>KM Troca Óleo:</b> ${esc(v.kmOleo)} &nbsp; <b>Data Troca Óleo:</b> ${fd(v.dOleo)}</p><table><thead><tr><th>DATA</th><th>KM SAÍDA</th><th>KM CHEGADA</th><th>HORA SAÍDA</th><th>HORA CHEGADA</th><th>ORIGEM / DESTINO</th><th>NOME MOTORISTA</th><th>VISTO</th><th>FINALIDADE</th><th>USUÁRIO</th><th>KM RODADO</th></tr></thead><tbody>${rw}</tbody><tfoot><tr><td colspan="10" style="text-align:right">Total (KM rodado)</td><td>${t}</td></tr></tfoot></table>${o.a.length?'<p><b>Abastecimentos:</b><br>'+o.a.map(a=>esc(fj(a))+(a.mod?' — '+esc(MOD[a.mod]):'')).join('<br>')+'</p>':''}${v.obs?'<p><b>Observações:</b> '+esc(v.obs)+'</p>':''}</div>`}).join('');print()};
+let dp;addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;$('#inst').hidden=false});
+$('#inst').onclick=async()=>{dp.prompt();await dp.userChoice;$('#inst').hidden=true};
+if(/iphone|ipad/i.test(navigator.userAgent)&&!navigator.standalone)$('#ios').hidden=false;
+if((location.protocol === "http:" || location.protocol === "https:") && 'serviceWorker' in navigator) addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(err=>console.warn("Service Worker não registrado:",err)));
+setTimeout(()=>{$('#splash').style.opacity=0;setTimeout(()=>$('#splash').remove(),450)},1100);
+sv();$('#e_vid').value=S.ativo;fillH();draw();clr();aclr();
+</script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, collection, getDocs, writeBatch, serverTimestamp, onSnapshot, setDoc, deleteDoc, runTransaction, query, where } from "https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDj7-r7RAvVPr_ME4M3rZfi_BXqf_-iwdk",
+  authDomain: "diario-de-bordo-masters-1420a.firebaseapp.com",
+  projectId: "diario-de-bordo-masters-1420a",
+  storageBucket: "diario-de-bordo-masters-1420a.firebasestorage.app",
+  messagingSenderId: "804206297707",
+  appId: "1:804206297707:web:cf1631e82cf5446e0c272e"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+let mastersProfile = null;
+let reservationUnsub = null;
+let activeReservations = new Map();
+const isAdmin = () => mastersProfile?.perfil === "administrador" && window.mastersProfile?.usuario === "MASTERS";
+// Ponte explícita entre o módulo Firebase e o script principal do aplicativo.
+Object.defineProperty(window, "mastersCurrentUser", { configurable:true, get:()=>auth.currentUser });
+Object.defineProperty(window, "mastersProfile", { configurable:true, get:()=>mastersProfile });
+window.mastersRunTransaction = (...args)=>runTransaction(db,...args);
+window.mastersDb = db;
+window.mastersDoc = (...args)=>doc(db,...args);
+window.mastersCollection = (...args)=>collection(db,...args);
+window.mastersServerTimestamp = ()=>serverTimestamp();
+const myReservation = () => activeReservations.get(String(S.ativo));
+const ownsActiveVehicle = () => { const r=myReservation(); return !!r && r.uid===window.mastersCurrentUser?.uid; };
+window.mastersCanUseVehicle = ownsActiveVehicle;
+window.mastersIsAdmin = isAdmin;
+window.mastersCanManageRecord = row => isAdmin() || (!!row && !!window.mastersCurrentUser && row.uid === window.mastersCurrentUser.uid);
+const gate = document.getElementById("dev-login");
+const statusBox = document.getElementById("login-status");
+const userInput = document.getElementById("login-user");
+const passInput = document.getElementById("login-pass");
+const enterBtn = document.getElementById("login-enter");
+const exitBtn = document.getElementById("login-exit");
+
+// Autenticação: aceita apelido de usuário OU e-mail Firebase.
+// O Firebase Email/Password exige e-mail; o apelido é convertido antes da autenticação.
+const LOGIN_EMAILS = Object.freeze({
+  MASTERS: "masters@diario-de-bordo-masters-1420a.firebaseapp.com",
+  RONAN: "ronan@diario-de-bordo-masters-1420a.firebaseapp.com"
+});
+
+// Aceita o identificador curto cadastrado para cada conta. O Firebase recebe
+// sempre o e-mail da conta Auth; a senha é enviada sem alterações.
+function normalizeLoginName(value) {
+  return String(value ?? "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+function emailFromUsername(value) {
+  const raw = String(value ?? "").trim();
+  if (!raw) throw new Error("Informe seu usuário ou e-mail.");
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(raw)) return raw.toLowerCase();
+  const key = normalizeLoginName(raw);
+  const email = LOGIN_EMAILS[key];
+  if (!email) throw new Error("Usuário não cadastrado. Digite RONAN, MASTERS ou o e-mail completo.");
+  return email;
+}
+
+let sessionOpen = false, sessionOpening = false;
+function showLoginError(error) {
+  const code = error?.code || "";
+  if (code === "auth/too-many-requests") {
+    statusBox.textContent = "O Firebase bloqueou temporariamente novas tentativas desta conta. Aguarde a liberação antes de tentar novamente; não repita o login agora.";
+  } else if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+    statusBox.textContent = "E-mail ou senha incorretos. Confira a senha cadastrada para esta conta.";
+  } else {
+    statusBox.textContent = error?.message || "Não foi possível entrar.";
+  }
+}
+async function openSession(user) {
+  if (sessionOpen || sessionOpening) return;
+  sessionOpening = true;
+  try {
+    const profileRef = window.mastersDoc( "usuarios", user.uid);
+    const profileSnap = await getDoc(profileRef);
+    if (!profileSnap.exists()) {
+      await signOut(auth);
+      throw new Error("Login autenticado, mas não existe perfil autorizado em Firestore. Peça ao administrador para conferir o cadastro.");
+    }
+    const profile = profileSnap.data();
+    mastersProfile = profile;
+    applyLocalUserScope();
+    if (profile.status !== "ativo") {
+      await signOut(auth);
+      throw new Error("Este usuário está inativo.");
+    }
+    if (profile.uid !== user.uid) {
+      await signOut(auth);
+      throw new Error("O perfil não corresponde ao usuário autenticado.");
+    }
+    statusBox.textContent = "Acesso validado. Abrindo o protótipo…";
+    gate.style.display = "none";
+    exitBtn.hidden = false;
+    // O botão estava dentro do portão de login (oculto após entrar): move para fora e identifica o usuário.
+    exitBtn.textContent = "Sair (" + (profile.usuario || "usuário") + ")";
+    exitBtn.style.cssText = "position:fixed;top:calc(8px + env(safe-area-inset-top,0px));right:8px;z-index:9000;padding:6px 10px;font-size:12px";
+    document.body.appendChild(exitBtn);
+    // A clear visible reminder is added without altering the existing app data.
+    const notice = document.createElement("div");
+    notice.id = "dev-auth-notice";
+    notice.style.cssText = "background:#fff4d8;border:1px solid #e5c46a;padding:9px 12px;text-align:center;font-size:13px";
+    notice.textContent = "DESENVOLVIMENTO: sincronização em nuvem disponível. Seus dados locais serão preservados.";
+    document.body.insertBefore(notice, document.body.firstChild);
+    let cloud = document.getElementById("cloud-tools");
+    if (!cloud) {
+      cloud = document.createElement("section"); cloud.id = "cloud-tools";
+      cloud.style.cssText = "max-width:900px;margin:12px auto;padding:14px;background:#eef5ff;border:1px solid #b8ccec;border-radius:10px";
+      cloud.innerHTML = '<b>Sincronização em nuvem</b><p style="margin:6px 0 10px;font-size:13px">Registros sincronizados com controle de acesso por usuário.</p><button id="cloud-send" type="button">Enviar dados locais (administração)</button> <button id="cloud-get" type="button">Atualizar dados</button><span id="cloud-status" style="display:block;margin-top:8px;font-size:13px"></span><p id="cloud-live" style="font-size:12px;margin-bottom:0">Conectando à sincronização…</p>';
+      document.body.insertBefore(cloud, document.querySelector('main'));
+      document.getElementById('cloud-send').onclick = () => syncToCloud();
+      document.getElementById('cloud-get').onclick = () => syncFromCloud();
+    }
+    installReservationPanel();installMigrationPanel();
+    const sendButton=document.getElementById('cloud-send'); if(sendButton)sendButton.hidden=!isAdmin();
+    if(!isAdmin()){const nv=document.getElementById('nv');if(nv)nv.hidden=true;const acts=document.getElementById('acts');if(acts)acts.hidden=true;const aa=document.getElementById('aacts');if(aa)aa.hidden=true;}
+    startReservationWatch();
+    startLiveSync();
+    sessionOpen = true;
+  } finally { sessionOpening = false; }
+}
+const performLogin = async () => {
+  enterBtn.disabled = true;
+  statusBox.textContent = "Verificando acesso…";
+  try {
+    const email = emailFromUsername(userInput.value);
+    statusBox.textContent = `Usuário reconhecido. Autenticando ${email}…`;
+    const credential = await signInWithEmailAndPassword(auth, email, passInput.value);
+    await openSession(credential.user);
+  } catch (error) {
+    showLoginError(error);
+  } finally {
+    enterBtn.disabled = false;
+  }
+};
+
+enterBtn.addEventListener("click", performLogin);
+userInput.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); performLogin(); } });
+passInput.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); performLogin(); } });
+
+let liveUnsubs = [], liveReady = false, liveWriteTimer = null, liveWriting = false, vehiclesChecked = false;
+const pendingHas=(c,id)=>(S.__pendingDeletes||[]).some(x=>x.collection===c&&String(x.id)===String(id));
+const lastCloudJSON = new Map();
+let cloudVehicleIds = new Set();
+window.mastersVidValido = v => cloudVehicleIds.has(String(v));
+const localKey = (group,id)=>group+"/"+id;
+const stableCloudJSON = value => { const x={...value}; delete x.atualizadoEm; delete x.atualizadoPor; return JSON.stringify(x); };
+const cloudCollections = [{name:"veiculos",key:"veics"},{name:"viagens",key:"r"},{name:"abastecimentos",key:"ab"}];
+function applyLocalUserScope(){
+  if(!window.mastersCurrentUser || !mastersProfile) return;
+  const hidden=S.__legacyLocal || {r:[],ab:[]};
+  if(isAdmin()){
+    S.r=[...(S.r||[]),...(hidden.r||[])].filter((x,i,a)=>a.findIndex(y=>String(y.id)===String(x.id))===i);
+    S.ab=[...(S.ab||[]),...(hidden.ab||[])].filter((x,i,a)=>a.findIndex(y=>String(y.id)===String(x.id))===i);
+    S.__legacyLocal={r:[],ab:[]};
+  } else {
+    const uid=window.mastersCurrentUser.uid;
+    const auth=new Set((mastersProfile?.veiculosAutorizados||[]).map(String)),mine=x=>x.uid===uid||auth.has(String(x.vid));
+    const keepR=(S.r||[]).filter(mine), keepA=(S.ab||[]).filter(mine);
+    hidden.r=[...(hidden.r||[]),...(S.r||[]).filter(x=>!mine(x))].filter((x,i,a)=>a.findIndex(y=>String(y.id)===String(x.id))===i);
+    hidden.ab=[...(hidden.ab||[]),...(S.ab||[]).filter(x=>!mine(x))].filter((x,i,a)=>a.findIndex(y=>String(y.id)===String(x.id))===i);
+    S.r=keepR; S.ab=keepA; S.__legacyLocal=hidden;
+  }
+  save(); draw(); alist(); prev();
+}
+function stopLiveSync(){ liveUnsubs.forEach(fn=>fn()); liveUnsubs=[]; liveReady=false; }
+function scopedQueries(group){
+  const ref=collection(db,group.name);
+  if(group.name==="veiculos"||isAdmin())return[ref];
+  const me=window.mastersCurrentUser.uid,vids=[...new Set((mastersProfile?.veiculosAutorizados||[]).map(String))];
+  return[query(ref,where("uid","==",me)),...vids.map(v=>query(ref,where("vid","==",v)))];
+}
+function startLiveSync(){
+  stopLiveSync();
+  const live=document.getElementById("cloud-live");
+  if(!window.mastersCurrentUser){if(live)live.textContent="Entre para conectar.";return;}
+  let firstSnapshots=0;
+  const total=cloudCollections.reduce((n,g)=>n+scopedQueries(g).length,0);
+  for(const group of cloudCollections) for(const q of scopedQueries(group)){
+    const unsub=onSnapshot(q, snap=>{
+      const local=S[group.key]||[]; let changed=false;
+      snap.docChanges().forEach(change=>{
+        if(change.type==="removed"){
+          const rid=change.doc.id,ri=local.findIndex(x=>String(x.id)===String(rid));
+          lastCloudJSON.delete(localKey(group.name,rid));
+          if(ri>=0&&!pendingHas(group.name,rid)){local.splice(ri,1);changed=true;}
+          return;
+        }
+        const remote={...change.doc.data(),id:change.doc.id};
+        if(pendingHas(group.name,remote.id))return;
+        
+        lastCloudJSON.set(localKey(group.name,remote.id),stableCloudJSON(remote));
+        const idx=local.findIndex(x=>String(x.id)===String(remote.id));
+        if(idx<0){local.push(remote);changed=true;}
+        else if(change.type==="modified"||change.type==="added"){
+          if(JSON.stringify(local[idx])!==JSON.stringify(remote)){local[idx]=remote;changed=true;}
+        }
+      });
+      S[group.key]=local;if(group.name==="veiculos")cloudVehicleIds=new Set(snap.docs.map(d=>String(d.id)));
+      if(group.name==="veiculos"&&!vehiclesChecked&&!isAdmin()&&snap.docs.length>0){
+        vehiclesChecked=true;
+        const cloudIds=new Set(snap.docs.map(d=>String(d.id))),used=new Set([...(S.r||[]),...(S.ab||[])].map(x=>String(x.vid))),before=S.veics.length;
+        S.veics=S.veics.filter(v=>cloudIds.has(String(v.id))||used.has(String(v.id)));
+        if(!S.veics.some(v=>String(v.id)===String(S.ativo)))S.ativo=S.veics[0]?.id;
+        if(S.veics.length!==before)changed=true;
+      }
+      firstSnapshots++;
+      if(changed){window.__mastersApplyingCloud=true;try{save();sv();fillH();draw();prev();aclr();alist();}finally{window.__mastersApplyingCloud=false;}}
+      if(firstSnapshots>=total){liveReady=true;if(live)live.textContent="Conectado: dados autorizados atualizados em tempo real."+(!isAdmin()&&!(mastersProfile?.veiculosAutorizados||[]).length?" Atenção: nenhum veículo autorizado neste perfil; peça ao administrador.":"");window.dispatchEvent(new Event("masters-local-save"));}
+    },err=>{if(live)live.textContent="Falha na atualização: "+(err.message||err);});
+    liveUnsubs.push(unsub);
+  }
+}
+window.addEventListener("online",()=>{ if(liveReady) window.dispatchEvent(new Event("masters-local-save")); });
+window.addEventListener("masters-local-save",()=>{
+  if(!liveReady||!window.mastersCurrentUser||liveWriting)return;
+  clearTimeout(liveWriteTimer);
+  liveWriteTimer=setTimeout(async()=>{
+    liveWriting=true; const live=document.getElementById("cloud-live");
+    try{
+      let sent=0,blocked=0;
+      for(const group of cloudCollections){
+        if(group.name==="veiculos"&&!isAdmin())continue;
+        for(const row of (S[group.key]||[])){
+          if(!row.id)continue;
+          if(group.name!=="veiculos"&&!cloudVehicleIds.has(String(row.vid))){blocked++;continue;}
+          if(group.name!=="veiculos"){
+            if(!row.uid&&!isAdmin())continue;
+            if(row.uid&&row.uid!==window.mastersCurrentUser.uid&&!isAdmin())continue;
+          }
+          const id=String(row.id),key=localKey(group.name,id),payload={...row,id,atualizadoEm:serverTimestamp(),atualizadoPor:window.mastersCurrentUser.uid};
+          if(group.name==="veiculos") { delete payload.uid; }
+          else if(!payload.uid) { payload.legado=true; delete payload.uid; }
+          else payload.usuarioRegistro=payload.usuarioRegistro||mastersProfile?.usuario||"";
+          const comparable=stableCloudJSON(payload);
+          if(lastCloudJSON.get(key)===comparable)continue;
+          await setDoc(doc(db,group.name,id),payload,{merge:true});if(group.name==="veiculos")cloudVehicleIds.add(id);
+          lastCloudJSON.set(key,comparable);sent++;
+        }
+      }
+      const queue=S.__pendingDeletes||[]; const remaining=[];
+      for(const item of queue){
+        try{
+          if(!isAdmin() && item.collection!=='viagens' && item.collection!=='abastecimentos') { remaining.push(item); continue; }
+          if(!lastCloudJSON.has(localKey(item.collection,String(item.id)))){continue;}
+          await deleteDoc(doc(db,item.collection,String(item.id)));
+          lastCloudJSON.delete(localKey(item.collection,String(item.id))); sent++;
+        }catch(err){ remaining.push(item); }
+      }
+      S.__pendingDeletes=remaining;
+      if(live)live.textContent=(sent?`${sent} alteração(ões) sincronizada(s).`:"Conectado: nenhuma alteração pendente.")+(blocked?` ATENÇÃO: ${blocked} registro(s) com veículo inválido não foram enviados; peça ao MASTERS para rodar a auditoria de vínculos.`:"");
+    }catch(e){if(live)live.textContent="Salvo neste aparelho; falha ao sincronizar: "+(e.message||e);}
+    finally{liveWriting=false;}
+  },900);
+});
+
+/*AUDIT-START*/
+function classificarVinculos(veics,regs,mapa,locais){
+  const ids=new Set(veics.map(v=>String(v.id))),porP=new Map(),porN=new Map(),loc=new Map((locais||[]).map(v=>[String(v.id),v]));
+  veics.forEach(v=>{const p=npl(v.placa);if(p)porP.set(p,[...(porP.get(p)||[]),v]);new Set([npl(v.veiculo),npl(v.modelo)]).forEach(n=>{if(n)porN.set(n,[...(porN.get(n)||[]),v])})});
+  const out={ok:0,corrigir:[],manual:[]};
+  for(const r of regs){
+    const vid=String(r.data.vid??'');if(vid&&ids.has(vid)){out.ok++;continue}
+    const b={col:r.col,id:r.id,de:vid},man=m=>out.manual.push({...b,motivo:m}),pl=npl(r.data.placa),cp=pl?(porP.get(pl)||[]):[],mp=mapa.get(vid);
+    let alvo=null,motivo='';
+    if(mp){if(!ids.has(mp))man('mapeamento aponta para veículo inexistente');else if(cp.length===1&&String(cp[0].id)!==mp)man('conflito entre mapeamento e placa do registro');else{alvo=mp;motivo='mapeamento do administrador'}}
+    else if(pl){if(cp.length===1){alvo=String(cp[0].id);motivo='placa do registro'}else man(cp.length?'placa repetida em mais de um veículo':'placa do registro sem veículo cadastrado')}
+    else if(vid&&loc.has(vid)&&npl(loc.get(vid).placa)){const c=porP.get(npl(loc.get(vid).placa))||[];if(c.length===1){alvo=String(c[0].id);motivo='veículo local de mesmo ID (placa '+c[0].placa+')'}else man('placa do veículo local sem correspondência única')}
+    else{const s=porN.get(npl(r.data.veiculo))||[];man('sem evidência inequívoca'+(npl(r.data.veiculo)&&s.length===1?' (sugestão por nome: '+s[0].placa+')':''))}
+    if(alvo)out.corrigir.push({...b,para:alvo,motivo});
+  }
+  return out;
+}
+/*AUDIT-END*/
+let migEstado=null;
+function installMigrationPanel(){
+  if(!isAdmin()||document.getElementById('mig-panel'))return;
+  const p=document.createElement('section');p.id='mig-panel';
+  p.style.cssText='max-width:900px;margin:12px auto;padding:14px;background:#fff8e8;border:1px solid #e5c46a;border-radius:10px';
+  p.innerHTML='<b>Auditoria de vínculos (MASTERS)</b><p class="hint">Confere viagens e abastecimentos contra os veículos cadastrados. 1) Auditar: nada é gravado. 2) Baixar backup. 3) Aplicar: altera somente o campo vid e registra auditoria. Mapeamento manual opcional, uma linha por vínculo: ID_antigo=ID_do_veículo</p><textarea id="mig-map" rows="2" placeholder="ID_antigo=ID_do_veículo"></textarea><div class="bar"><button id="mig-audit" type="button">1. Auditar (simulação)</button><button id="mig-backup" class="s" type="button" disabled>2. Baixar backup e relatório</button><button id="mig-apply" class="d" type="button" disabled>3. Aplicar correções</button></div><pre id="mig-out" style="white-space:pre-wrap;font-size:12px;max-height:320px;overflow:auto"></pre>';
+  document.body.insertBefore(p,document.querySelector('main'));
+  const g=id=>document.getElementById(id),out=g('mig-out');
+  g('mig-audit').onclick=async()=>{try{
+    out.textContent='Lendo veículos, viagens e abastecimentos…';
+    const rd=async n=>(await getDocs(collection(db,n))).docs.map(d=>({col:n,id:d.id,data:d.data()}));
+    const [vs,vi,ab]=await Promise.all([rd('veiculos'),rd('viagens'),rd('abastecimentos')]);
+    const mapaTxt=g('mig-map').value.split(/\r?\n/).map(l=>l.split('=').map(s=>s.trim())).filter(a=>a.length===2&&a[0]&&a[1]);
+    const veics=vs.map(x=>({...x.data,id:x.id})),rep=classificarVinculos(veics,[...vi,...ab],new Map(mapaTxt),S.veics);
+    const nome=id=>{const v=veics.find(x=>String(x.id)===id);return v?`${v.veiculo||''} ${v.placa||''}`.trim():id},grp={};
+    rep.corrigir.forEach(c=>{const k=`${c.de||'(vazio)'} → ${c.para} [${nome(c.para)}] — ${c.motivo}`;grp[k]=(grp[k]||0)+1});
+    const gt=Object.entries(grp).map(([k,n])=>`${n}× ${k}`).join('\n');
+    migEstado={vs,vi,ab,rep,gt,mapa:mapaTxt.map(a=>a.join('=')),backup:false,em:new Date().toISOString()};
+    out.textContent=`Veículos: ${vs.length} | Viagens: ${vi.length} | Abastecimentos: ${ab.length}\nVínculo correto: ${rep.ok}\nCorrigíveis: ${rep.corrigir.length}\nExigem conferência manual: ${rep.manual.length}\n\n${gt}`+(rep.manual.length?'\n\nConferência manual:\n'+rep.manual.slice(0,50).map(m=>`${m.col}/${m.id} vid=${m.de||'(vazio)'}: ${m.motivo}`).join('\n')+(rep.manual.length>50?`\n… e mais ${rep.manual.length-50} no relatório JSON`:''):'');
+    g('mig-backup').disabled=false;g('mig-apply').disabled=true;
+  }catch(e){out.textContent='Falha na auditoria: '+(e.message||e)}};
+  g('mig-backup').onclick=()=>{const m=migEstado;if(!m)return;const f=a=>a.map(x=>({id:x.id,...x.data}));
+    dl(new Blob([JSON.stringify({geradoEm:m.em,relatorio:m.rep,backup:{veiculos:f(m.vs),viagens:f(m.vi),abastecimentos:f(m.ab)}},null,1)],{type:'application/json'}),`backup-vinculos-${m.em.slice(0,19).replace(/[:T]/g,'-')}.json`);
+    m.backup=true;g('mig-apply').disabled=!m.rep.corrigir.length;};
+  g('mig-apply').onclick=async()=>{const m=migEstado;if(!m||!m.backup||!m.rep.corrigir.length)return;
+    if(!confirm(`Aplicar ${m.rep.corrigir.length} correção(ões)? Só o campo vid será alterado; nada é excluído nem duplicado.\n\n${m.gt}`))return;
+    const mid='mig-'+Date.now(),me=window.mastersCurrentUser.uid,L=m.rep.corrigir;let feitos=0,erro='';g('mig-apply').disabled=true;
+    try{for(let i=0;i<L.length;i+=400){const ch=L.slice(i,i+400),b=writeBatch(db);
+      ch.forEach(c=>b.update(doc(db,c.col,c.id),{vid:c.para,vidAnterior:c.de,migradoEm:serverTimestamp(),migradoPor:me,migracaoId:mid}));
+      b.set(doc(db,'auditoria',mid,'itens','lote'+String(i/400).padStart(4,'0')),{itens:ch,criadoEm:serverTimestamp()});
+      await b.commit();feitos+=ch.length;out.textContent=`Aplicando… ${feitos}/${L.length}`}
+    }catch(e){erro=e.message||String(e)}
+    try{await setDoc(doc(db,'auditoria',mid),{tipo:'migracao-vinculo-veiculo',executadoPor:me,usuario:mastersProfile?.usuario||'',em:serverTimestamp(),corrigidos:feitos,previstos:L.length,manuais:m.rep.manual.length,jaCorretos:m.rep.ok,mapeamentoManual:m.mapa,backupBaixado:true,concluida:!erro&&feitos===L.length,erro})}catch(e){erro+=' | auditoria: '+(e.message||e)}
+    out.textContent=erro?`INTERROMPIDA após ${feitos}/${L.length}. Erro: ${erro}\nO que foi gravado está na auditoria ${mid}. Rode a auditoria de novo para continuar.`:`Concluído: ${feitos} corrigido(s); ${m.rep.manual.length} exigem conferência manual. Auditoria: ${mid}.`;migEstado=null;};
+}
+function installReservationPanel(){
+  if(document.getElementById('reservation-panel')) return;
+  const panel=document.createElement('section'); panel.id='reservation-panel';
+  panel.style.cssText='max-width:900px;margin:12px auto;padding:14px;background:#fff;border:1px solid #d6d9e8;border-radius:10px';
+  panel.innerHTML=`<b>Controle de utilização do veículo</b><p id="reservation-state" style="font-size:13px;margin:8px 0">Consultando disponibilidade…</p><div class="bar"><button id="reserve-current" type="button">Assumir este veículo</button><button id="release-current" class="s" type="button">Liberar meu veículo</button></div><div id="admin-reservations" hidden style="margin-top:12px"><b>Reservas ativas — administração MASTERS</b><div id="admin-reservation-list" class="hint"></div></div>`;
+  document.body.insertBefore(panel,document.querySelector('main'));
+  document.getElementById('reserve-current').onclick=reserveCurrentVehicle;
+  document.getElementById('release-current').onclick=()=>releaseCurrentVehicle(false);
+  if(isAdmin()) document.getElementById('admin-reservations').hidden=false;
+  renderReservations();
+}
+function startReservationWatch(){
+  if(reservationUnsub) reservationUnsub();
+  reservationUnsub=onSnapshot(window.mastersCollection('reservas'),snap=>{
+    activeReservations.clear(); snap.forEach(d=>{const x=d.data();if(x.status==='ativa')activeReservations.set(d.id,{...x,vehicleId:d.id});});
+    renderReservations();
+  },err=>{const el=document.getElementById('reservation-state');if(el)el.textContent='Não foi possível consultar reservas: '+err.message;});
+}
+function renderReservations(){
+  const state=document.getElementById('reservation-state'); if(!state)return;
+  const r=myReservation();
+  if(r) state.textContent=`Você está utilizando este veículo desde ${r.inicioTexto||'o horário registrado na nuvem'}. Não esqueça de liberá-lo ao terminar.`;
+  else {const other=activeReservations.get(String(S.ativo));state.textContent=other?`Veículo reservado por ${other.usuario||'outro funcionário'}. Escolha outro veículo disponível.`:'Este veículo está disponível para utilização.';}
+  const take=document.getElementById('reserve-current'),release=document.getElementById('release-current');
+  if(take)take.disabled=!!activeReservations.get(String(S.ativo));
+  if(release)release.disabled=!r;
+  const list=document.getElementById('admin-reservation-list');
+  if(list&&isAdmin()){
+    list.innerHTML=[...activeReservations.values()].map(x=>`<div style="padding:8px;border-top:1px solid #ddd"><b>${esc(x.veiculo||x.vehicleId)}</b> — ${esc(x.usuario||'Funcionário')} <button class="d" data-force-release="${esc(x.vehicleId)}" style="margin-left:8px;padding:6px 9px">Liberar administrativamente</button></div>`).join('')||'Nenhuma reserva ativa.';
+    list.querySelectorAll('[data-force-release]').forEach(b=>b.onclick=()=>adminRelease(b.dataset.forceRelease));
+  }
+}
+async function reserveCurrentVehicle(){
+  const id=String(S.ativo||''); if(!id||!V())return;
+  const btn=document.getElementById('reserve-current');btn.disabled=true;
+  try{
+    await window.mastersRunTransaction(async tx=>{
+      const ref=window.mastersDoc('reservas',id),snap=await tx.get(ref);
+      if(snap.exists()&&snap.data().status==='ativa')throw new Error('Este veículo já está reservado.');
+      tx.set(ref,{uid:window.mastersCurrentUser.uid,usuario:window.mastersProfile.usuario||'Funcionário',vehicleId:id,veiculo:V().veiculo||'',status:'ativa',inicio:window.mastersServerTimestamp(),criadoEm:window.mastersServerTimestamp(),liberadoEm:null,justificativa:''});
+    });
+    document.getElementById('reservation-state').textContent='Veículo reservado para você.';
+  }catch(e){alert(e.message||'Não foi possível reservar o veículo.');}
+  finally{btn.disabled=false;}
+}
+async function releaseCurrentVehicle(adminOverride=false,vehicleId=null){
+  const id=String(vehicleId||S.ativo||'');const km=prompt('Informe a quilometragem atual do veículo para registrar a liberação:');
+  if(km===null)return;if(km.trim()===''||!Number.isFinite(Number(km))||Number(km)<0){alert('Informe uma quilometragem válida.');return;}
+  let reason='';if(adminOverride){reason=prompt('Justificativa obrigatória para liberar a reserva de outro funcionário:')||'';if(!reason.trim()){alert('A justificativa é obrigatória.');return;}}
+  try{await window.mastersRunTransaction(async tx=>{
+    const ref=window.mastersDoc('reservas',id),snap=await tx.get(ref);if(!snap.exists()||snap.data().status!=='ativa')throw new Error('Esta reserva já foi liberada.');
+    const data=snap.data();if(!adminOverride&&data.uid!==window.mastersCurrentUser.uid)throw new Error('Você só pode liberar o veículo reservado em seu nome.');
+    if(adminOverride&&!isAdmin())throw new Error('Somente MASTERS pode liberar reservas de terceiros.');
+    tx.update(ref,{status:'liberada',liberadoEm:window.mastersServerTimestamp(),kmLiberacao:Number(km),liberadoPor:window.mastersCurrentUser.uid,liberadoPorUsuario:window.mastersProfile.usuario||'',liberacaoAdministrativa:!!adminOverride,justificativa:reason});
+    tx.set(window.mastersDoc(window.mastersCollection('historico_reservas')),{...data,veiculoId:id,status:'liberada',kmLiberacao:Number(km),liberadoPor:window.mastersCurrentUser.uid,liberadoPorUsuario:window.mastersProfile.usuario||'',liberacaoAdministrativa:!!adminOverride,justificativa:reason,registradoEm:window.mastersServerTimestamp()});
+  });alert('Veículo liberado e histórico registrado.');}catch(e){alert(e.message||'Falha ao liberar veículo.');}
+}
+function adminRelease(id){if(!isAdmin()){alert('Acesso restrito ao administrador MASTERS.');return;}releaseCurrentVehicle(true,id);}
+
+async function syncToCloud(){
+  const status=document.getElementById("cloud-status"),send=document.getElementById("cloud-send");
+  if(!isAdmin()){if(status)status.textContent="Somente MASTERS pode fazer a migração inicial dos dados antigos.";return;}
+  if(send)send.disabled=true;if(status)status.textContent="Enviando dados antigos sem apagar registros existentes…";
+  try{
+    let created=0,skipped=0;
+    for(const group of cloudCollections){
+      for(const row of (S[group.key]||[])){
+        if(!row.id)continue;
+        const id=String(row.id),ref=doc(db,group.name,id),old=await getDoc(ref);
+        if(old.exists()){skipped++;continue;}
+        const payload={...row,id,criadoPor:window.mastersCurrentUser.uid,atualizadoEm:serverTimestamp(),atualizadoPor:window.mastersCurrentUser.uid};
+        if(group.name==="veiculos")delete payload.uid;
+        else if(!payload.uid)payload.legado=true;
+        await setDoc(ref,payload);created++;
+      }
+    }
+    if(status)status.textContent=`Migração concluída: ${created} enviados; ${skipped} já existentes preservados.`;
+  }catch(e){if(status)status.textContent="Falha na migração: "+(e.message||e);}
+  finally{if(send)send.disabled=false;}
+}
+async function syncFromCloud(silent=false){
+  const status=document.getElementById("cloud-status"),get=document.getElementById("cloud-get");
+  if(get)get.disabled=true;if(!silent&&status)status.textContent="Atualizando registros autorizados…";
+  try{
+    let added=0;
+    for(const group of cloudCollections){
+      const local=S[group.key]||[],ids=new Set(local.map(x=>String(x.id)));
+      for(const q of scopedQueries(group)){const snap=await getDocs(q);snap.forEach(d=>{if(!ids.has(String(d.id))){local.push({...d.data(),id:d.id});ids.add(String(d.id));added++;}});}
+      S[group.key]=local;
+    }
+    if(!S.ativo&&S.veics.length)S.ativo=S.veics[0].id;
+    window.__mastersApplyingCloud=true;try{save();sv();fillH();draw();prev();alist();}finally{window.__mastersApplyingCloud=false;}
+    if(status)status.textContent=`Atualização concluída: ${added} novo(s) registro(s).`;
+  }catch(e){if(status)status.textContent="Falha ao atualizar: "+(e.message||e);}
+  finally{if(get)get.disabled=false;}
+}
+
+exitBtn.addEventListener("click", async () => {
+  stopLiveSync();
+  await signOut(auth);
+  location.reload();
+});
+
+onAuthStateChanged(auth, async user => {
+  if (!user) { sessionOpen = false; gate.style.display = "flex"; return; }
+  if (sessionOpen || sessionOpening) return;
+  statusBox.textContent = "Restaurando sessão…";
+  try { await openSession(user); }
+  catch (error) { showLoginError(error); }
+});
+</script>
+
+</body></html>
