@@ -686,9 +686,30 @@ function applyLocalUserScope(){
 function stopLiveSync(){ liveUnsubs.forEach(fn=>fn()); liveUnsubs=[]; liveReady=false; }
 function scopedQueries(group){
   const ref=collection(db,group.name);
-  if(group.name==="veiculos"||isAdmin())return[ref];
-  const me=window.mastersCurrentUser.uid,vids=[...new Set((mastersProfile?.veiculosAutorizados||[]).map(String))];
-  return[query(ref,where("uid","==",me)),...vids.map(v=>query(ref,where("vid","==",v)))];
+
+  if(group.name==="veiculos"||isAdmin()){
+    return [ref];
+  }
+
+  const currentUser=window.mastersCurrentUser;
+
+  if(!currentUser){
+    console.warn("Usuário ainda não autenticado. Consulta aguardando sessão.");
+    return [];
+  }
+
+  const me=currentUser.uid;
+
+  const vids=[
+    ...new Set(
+      (mastersProfile?.veiculosAutorizados||[]).map(String)
+    )
+  ];
+
+  return [
+    query(ref,where("uid","==",me)),
+    ...vids.map(v=>query(ref,where("vid","==",v)))
+  ];
 }
 function startLiveSync(){
   stopLiveSync();
