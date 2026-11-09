@@ -387,12 +387,10 @@ const exitBtn = document.getElementById("login-exit");
 const LOGIN_EMAILS = Object.freeze({
   MASTERS: "masters@diario-de-bordo-masters-1420a.firebaseapp.com",
   RONAN: "ronan@diario-de-bordo-masters-1420a.firebaseapp.com",
-  "ECCLESTON BRITO": "eccleston.brito@diario-de-bordo-masters-1420a.firebaseapp.com",
-  "VALDINEI TEIXEIRA": "valdinei.teixeira@diario-de-bordo-masters-1420a.firebaseapp.com"
+  ECCLESTONBRITO: "eccleston.brito@diario-de-bordo-masters-1420a.firebaseapp.com",
+  VALDINEITEIXEIRA: "valdinei.teixeira@diario-de-bordo-masters-1420a.firebaseapp.com"
 });
 
-// Aceita o identificador curto cadastrado para cada conta. O Firebase recebe
-// sempre o e-mail da conta Auth; a senha é enviada sem alterações.
 function normalizeLoginName(value) {
   return String(value ?? "")
     .trim()
@@ -401,6 +399,7 @@ function normalizeLoginName(value) {
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 }
+
 function emailFromUsername(value) {
   const raw = String(value ?? "").trim();
 
@@ -413,12 +412,11 @@ function emailFromUsername(value) {
   }
 
   const key = normalizeLoginName(raw);
-  const LOGIN_EMAILS = Object.freeze({
-  MASTERS: "masters@diario-de-bordo-masters-1420a.firebaseapp.com",
-  RONAN: "ronan@diario-de-bordo-masters-1420a.firebaseapp.com",
-  ECCLESTONBRITO: "eccleston.brito@diario-de-bordo-masters-1420a.firebaseapp.com",
-  VALDINEITEIXEIRA: "valdinei.teixeira@diario-de-bordo-masters-1420a.firebaseapp.com"
-});
+  const email = LOGIN_EMAILS[key];
+
+  if (!email) {
+    throw new Error("Usuário não cadastrado.");
+  }
 
   return email;
 }
