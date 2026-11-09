@@ -444,6 +444,7 @@ async function openSession(user) {
     }
     const profile = profileSnap.data();
     mastersProfile = profile;
+    window.__mastersInitialVehicleUser = null;
     applyLocalUserScope();
     if (profile.status !== "ativo") {
       await signOut(auth);
