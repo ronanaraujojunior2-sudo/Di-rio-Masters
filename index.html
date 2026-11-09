@@ -597,6 +597,20 @@ async function openSession(user) {
     }
     const profile = profileSnap.data();
     mastersProfile = profile;
+
+// Aplica imediatamente o veículo principal do funcionário.
+const defaultVehicleId = String(profile.veiculoPadraoId || "");
+
+if (
+  defaultVehicleId &&
+  Array.isArray(S.veics) &&
+  S.veics.some(v => String(v.id) === defaultVehicleId)
+) {
+  S.ativo = defaultVehicleId;
+  sv();
+  fillH();
+  draw();
+}
     window.__mastersInitialVehicleUser = null;
     applyLocalUserScope();
     if (profile.status !== "ativo") {
