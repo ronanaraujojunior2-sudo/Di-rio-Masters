@@ -682,6 +682,42 @@ function showLoginError(error) {
     }
   };
 }
+
+// Atualiza a lista administrativa depois que os veículos chegam do Firestore.
+// A consulta não altera S.ativo nem cria/libera reservas.
+function refreshAdminVehicleViewer(){
+  if(!isAdmin())return;
+  const select=document.getElementById("admin-view-vehicle");
+  if(!select)return;
+
+  const anterior=String(
+    window.mastersAdminViewVehicleId||select.value||""
+  );
+
+  select.innerHTML=
+    '<option value="">Selecione um veículo</option>'+vopts();
+
+  const existeAnterior=S.veics.some(v=>String(v.id)===anterior);
+  const escolhido=existeAnterior
+    ?anterior
+    :String(S.veics[0]?.id||"");
+
+  select.value=escolhido;
+  window.mastersAdminViewVehicleId=escolhido||null;
+
+  const status=document.getElementById("admin-view-status");
+  if(status){
+    status.textContent=escolhido
+      ?"Veículos carregados. Selecione um para consultar as viagens, sem assumir ou reservar o veículo."
+      :"Aguardando os veículos serem carregados do Firestore…";
+  }
+
+  if(escolhido){
+    sel=null;
+    draw();
+  }
+}
+
 async function openSession(user) {
   if (sessionOpen || sessionOpening) return;
   sessionOpening = true;
@@ -899,6 +935,10 @@ function startLiveSync(){
         });
 
         S[group.key]=local;
+
+        if(group.name==="veiculos"){
+          refreshAdminVehicleViewer();
+        }
 
         if(group.name==="veiculos"){
           cloudVehicleIds=new Set(
