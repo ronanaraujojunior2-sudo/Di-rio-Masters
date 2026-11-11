@@ -109,21 +109,66 @@ if(!S.veics){const id=uid();S={veics:[{id,veiculo:'FIAT MOBI',placa:'TYD5C39',ob
 if(!S.ab)S.ab=[];
 let sel=null,ed=null;const npl=x=>String(x||'').toUpperCase().replace(/[^A-Z0-9]/g,''),vOk=v=>!window.mastersVidValido||window.mastersVidValido(v);const own=()=>({uid:window.mastersCurrentUser?.uid||'',usuarioRegistro:window.mastersProfile?.usuario||'',criadoEm:new Date().toISOString()});
 const save=()=>{localStorage.setItem(K,JSON.stringify(S));if(!window.__mastersApplyingCloud)window.dispatchEvent(new Event('masters-local-save'))},V=()=>S.veics.find(v=>v.id==S.ativo)||S.veics[0];
+// Na consulta administrativa, agrupa cadastros duplicados sem apagar
+// documentos. Viagens ligadas a qualquer ID do grupo continuam visíveis.
+function adminVehicleGroups(){
+  const vehicles=Array.isArray(S.veics)?S.veics:[];
+  const parent=vehicles.map((_,i)=>i);
+  const find=i=>parent[i]===i?i:(parent[i]=find(parent[i]));
+  const join=(a,b)=>{a=find(a);b=find(b);if(a!==b)parent[b]=a;};
+  const norm=x=>String(x||'').normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  for(let i=0;i<vehicles.length;i++){
+    for(let j=i+1;j<vehicles.length;j++){
+      const a=vehicles[i],b=vehicles[j];
+      const pa=npl(a.placa),pb=npl(b.placa);
+      const samePlate=!!pa&&!!pb&&pa===pb;
+      const sameLabel=norm(a.veiculo)===norm(b.veiculo)&&
+        norm(a.modelo)===norm(b.modelo)&&!!norm(a.veiculo);
+      // Não junta dois veículos com placas diferentes; quando uma placa
+      // está ausente, a identificação + modelo iguais indicam duplicidade.
+      const compatiblePlates=!pa||!pb||pa===pb;
+      if(samePlate||(sameLabel&&compatiblePlates))join(i,j);
+    }
+  }
+  const groups=new Map();
+  vehicles.forEach((v,i)=>{
+    const root=find(i);
+    if(!groups.has(root))groups.set(root,[]);
+    groups.get(root).push(v);
+  });
+  const tripCounts=new Map();
+  (S.r||[]).forEach(r=>{
+    const id=String(r.vid||'');
+    tripCounts.set(id,(tripCounts.get(id)||0)+1);
+  });
+  const score=v=>{
+    const fields=[v.veiculo,v.modelo,v.placa,v.kmAtual,v.kmFinal,v.dIni,v.dFim,v.kmOleo,v.dOleo,v.obs];
+    const complete=fields.filter(x=>x!==undefined&&x!==null&&String(x).trim()!=='').length;
+    return (tripCounts.get(String(v.id))||0)*1000+complete*10+
+      (npl(v.placa)?3:0)+(Number.isFinite(Number(v.kmAtual))?1:0);
+  };
+  return [...groups.values()].map(items=>{
+    items.sort((a,b)=>score(b)-score(a));
+    return {primary:items[0],ids:items.map(v=>String(v.id)),items};
+  });
+}
+function adminViewerOptions(){
+  return adminVehicleGroups().map(g=>{
+    const v=g.primary;
+    return `<option value="${esc(v.id)}">${esc(v.veiculo)}${v.modelo?' ('+esc(v.modelo)+')':''} – ${esc(v.placa||'placa não informada')}${g.items.length>1?' · cadastro consolidado':''}</option>`;
+  }).join('');
+}
 const RS=()=>{
-  const consultaAdmin=
-    isAdmin()&&
-    window.mastersAdminViewVehicleId;
-
-  const vid=consultaAdmin
-    ?String(window.mastersAdminViewVehicleId)
-    :String(V().id);
-
+  const consultaAdmin=isAdmin()&&window.mastersAdminViewVehicleId;
+  const vid=consultaAdmin?String(window.mastersAdminViewVehicleId):String(V().id);
+  const ids=consultaAdmin
+    ?(adminVehicleGroups().find(g=>g.ids.includes(vid))?.ids||[vid])
+    :[vid];
   return S.r
     .map((r,i)=>[r,i])
-    .filter(x=>String(x[0].vid)===vid)
+    .filter(x=>ids.includes(String(x[0].vid)))
     .sort((a,b)=>
-      ckey(a[0].data,a[0].hS)
-        .localeCompare(ckey(b[0].data,b[0].hS))||
+      ckey(a[0].data,a[0].hS).localeCompare(ckey(b[0].data,b[0].hS))||
       a[1]-b[1]
     )
     .map(x=>x[0]);
@@ -653,11 +698,13 @@ function showLoginError(error) {
 
   select.innerHTML=
     '<option value="">Selecione um veículo</option>'+
-    vopts();
+    adminViewerOptions();
 
-  const inicial=S.veics.some(v=>String(v.id)===String(S.ativo))
-    ?String(S.ativo)
-    :String(S.veics[0]?.id||"");
+  const grupos=adminVehicleGroups();
+  const ativoGrupo=grupos.find(g=>g.ids.includes(String(S.ativo)));
+  const inicial=ativoGrupo
+    ?String(ativoGrupo.primary.id)
+    :String(grupos[0]?.primary.id||"");
 
   if(inicial){
     select.value=inicial;
@@ -695,12 +742,13 @@ function refreshAdminVehicleViewer(){
   );
 
   select.innerHTML=
-    '<option value="">Selecione um veículo</option>'+vopts();
+    '<option value="">Selecione um veículo</option>'+adminViewerOptions();
 
-  const existeAnterior=S.veics.some(v=>String(v.id)===anterior);
-  const escolhido=existeAnterior
-    ?anterior
-    :String(S.veics[0]?.id||"");
+  const grupos=adminVehicleGroups();
+  const grupoAnterior=grupos.find(g=>g.ids.includes(anterior));
+  const escolhido=grupoAnterior
+    ?String(grupoAnterior.primary.id)
+    :String(grupos[0]?.primary.id||"");
 
   select.value=escolhido;
   window.mastersAdminViewVehicleId=escolhido||null;
@@ -936,7 +984,7 @@ function startLiveSync(){
 
         S[group.key]=local;
 
-        if(group.name==="veiculos"){
+        if(group.name==="veiculos"||group.name==="viagens"){
           refreshAdminVehicleViewer();
         }
 
