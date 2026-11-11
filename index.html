@@ -149,6 +149,15 @@ $('#nv-cancelar').onclick=()=>$('#vehicle-dialog').close();
 $('#nv-salvar').onclick=()=>{const nome=$('#nv-nome').value.trim(),modelo=$('#nv-modelo').value.trim(),placa=$('#nv-placa').value.trim().toUpperCase(),kmAtual=$('#nv-km').value.trim();let erro='';if(!nome)erro='Informe uma identificação para o veículo.';else if(!modelo)erro='Informe o modelo do veículo.';else if(kmAtual===''||!Number.isFinite(Number(kmAtual))||Number(kmAtual)<0)erro='Informe a quilometragem atual válida.';else if(placa&&S.veics.some(v=>npl(v.placa)===npl(placa)))erro='Já existe um veículo cadastrado com essa placa.';$('#nv-erro').textContent=erro;if(erro)return;const id=uid();S.veics.push({id,veiculo:nome,modelo,placa,kmAtual:Number(kmAtual),obs:''});S.ativo=id;save();$('#vehicle-dialog').close();sel=null;sv();fillH();draw();clr()};
 function head(){const v=V();$('#ph').innerHTML=`<b>Veículo:</b> ${esc(v.veiculo)} &nbsp; <b>Placa:</b> ${esc(v.placa)} &nbsp; <b>Km Final:</b> ${esc(v.kmFinal)} &nbsp; <b>Período:</b> ${fd(v.dIni)} a ${fd(v.dFim)} &nbsp; <b>KM Troca Óleo:</b> ${esc(v.kmOleo)} &nbsp; <b>Data Troca Óleo:</b> ${fd(v.dOleo)}`}
 const PG={},PP=10;let lastV=null;
+// Seleção explícita da viagem: habilita os comandos Editar e Excluir.
+$('#tb').onclick = e => {
+  const tr = e.target.closest('tr.r[data-id]');
+  if (!tr) return;
+  const id = String(tr.dataset.id || '');
+  sel = sel === id ? null : id;
+  draw();
+};
+
 function draw(){
   let t=0;
 
@@ -244,6 +253,41 @@ const nm=()=>`diario-bordo-${(V().placa||'veiculo').replace(/\W/g,'')}-${new Dat
 const hoje=()=>new Date().toLocaleDateString('sv'),ds=d=>d.toLocaleDateString('sv'),inP=(d,i,f)=>{d=dk(d).slice(0,10);return(!i||d>=i)&&(!f||d<=f)};
 const money=n=>'R$ '+Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}),lit=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const TR=(vid,i,f)=>S.r.map((r,k)=>[r,k]).filter(x=>x[0].vid==vid&&inP(x[0].data,i,f)).sort((a,b)=>ckey(a[0].data,a[0].hS).localeCompare(ckey(b[0].data,b[0].hS))||a[1]-b[1]).map(x=>x[0]);
+
+// Para relatórios, omite viagens cujo KM de saída não coincide com o KM
+// de chegada da viagem imediatamente anterior do mesmo veículo.
+// A análise usa todo o histórico, mesmo quando o relatório tem período filtrado.
+// Os registros originais nunca são alterados ou excluídos.
+const TRExport=(vid,i,f)=>{
+  const all=S.r
+    .map((r,k)=>({r,k}))
+    .filter(x=>String(x.r.vid)===String(vid))
+    .sort((a,b)=>
+      ckey(a.r.data,a.r.hS).localeCompare(ckey(b.r.data,b.r.hS))||
+      a.k-b.k
+    );
+
+  let previousEnd=null;
+  const result=[];
+
+  for(const item of all){
+    const r=item.r;
+    const start=Number(r.kmS);
+    const end=Number(r.kmC);
+    const hasStart=r.kmS!==''&&r.kmS!=null&&Number.isFinite(start);
+    const hasEnd=r.kmC!==''&&r.kmC!=null&&Number.isFinite(end);
+    const divergent=previousEnd!==null&&hasStart&&start!==previousEnd;
+
+    if(!divergent&&inP(r.data,i,f)) result.push(r);
+
+    // Sempre avança pelo último KM de chegada registrado para evitar
+    // que uma viagem divergente provoque exclusão em cascata das seguintes.
+    if(hasEnd) previousEnd=end;
+  }
+
+  return result;
+};
+
 const FU=(vid,i,f)=>S.ab.filter(a=>(!vid||a.vid==vid)&&inP(a.data,i,f)).sort((a,b)=>ckey(a.data,a.hora).localeCompare(ckey(b.data,b.hora))),vl=id=>{const v=S.veics.find(x=>x.id==id);return v?v.veiculo+' – '+v.placa:'?'};
 function itens(o){const ids=new Set(o.t.map(r=>r.id)),by={};o.a.forEach(a=>{if(a.tid&&ids.has(a.tid))(by[a.tid]=by[a.tid]||[]).push(a)});
  const R=o.t.map(r=>({t:r,f:by[r.id]||[]}));o.a.filter(a=>!(a.tid&&ids.has(a.tid))).forEach(a=>R.push({t:null,f:[a]}));return R}
@@ -286,7 +330,7 @@ $('#a_ed').onclick=()=>{const a=S.ab.find(x=>x.id==selA);if(!a||!window.mastersC
 $('#a_del').onclick=()=>{const target=S.ab.find(x=>x.id==selA);if(!window.mastersCanManageRecord?.(target))return;ask('Deseja realmente excluir este abastecimento? Esta ação poderá afetar os relatórios exportados.',()=>{S.__pendingDeletes=S.__pendingDeletes||[];S.__pendingDeletes.push({collection:'abastecimentos',id:String(selA)});S.ab=S.ab.filter(x=>x.id!=selA);selA=null;save();if(eda==null)aclr();alist()});};
 const AT={h:()=>[hoje(),hoje()],s7:()=>{const d=new Date();d.setDate(d.getDate()-6);return[ds(d),hoje()]},s30:()=>{const d=new Date();d.setDate(d.getDate()-29);return[ds(d),hoje()]},mes:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m,1)),ds(new Date(y,m+1,0))]},ant:()=>{const d=new Date(),y=d.getFullYear(),m=d.getMonth();return[ds(new Date(y,m-1,1)),ds(new Date(y,m,0))]},todo:()=>['','']};
 document.querySelectorAll('#atalhos button').forEach(b=>b.onclick=()=>{[$('#e_ini').value,$('#e_fim').value]=AT[b.dataset.a]();prev()});
-function EX(){const i=$('#e_ini').value,f=$('#e_fim').value,vid=$('#e_vid').value;const e=i&&f&&i>f?'A data inicial deve ser anterior ou igual à data final.':'';return{i,f,e,L:(vid?S.veics.filter(v=>v.id==vid):S.veics).map(v=>({v,t:TR(v.id,i,f),a:FU(v.id,i,f)}))}}
+function EX(){const i=$('#e_ini').value,f=$('#e_fim').value,vid=$('#e_vid').value;const e=i&&f&&i>f?'A data inicial deve ser anterior ou igual à data final.':'';return{i,f,e,L:(vid?S.veics.filter(v=>v.id==vid):S.veics).map(v=>({v,t:TRExport(v.id,i,f),a:FU(v.id,i,f)}))}}
 function prev(){const x=EX();$('#e_err').textContent=x.e;$('#e_prev').innerHTML=x.e?'':x.L.map(o=>`<b>${esc(o.v.veiculo)} – ${esc(o.v.placa)}</b>: ${o.t.length} viagem(ns) e ${o.a.length} abastecimento(s) serão exportados`).join('<br>')}
 ['e_ini','e_fim','e_vid'].forEach(i=>$('#'+i).oninput=prev);
 const nmx=x=>`diario-bordo-${x.i||'inicio'}_${x.f||'fim'}`,vaz=x=>{const L=x.L.filter(o=>o.t.length||o.a.length);if(!L.length)alert('Nenhum registro no período selecionado. Nada foi gerado.');return L};
@@ -460,8 +504,17 @@ window.mastersDb = db;
 window.mastersDoc = (...args)=>doc(db,...args);
 window.mastersCollection = (...args)=>collection(db,...args);
 window.mastersServerTimestamp = ()=>serverTimestamp();
-const myReservation = () => activeReservations.get(String(S.ativo));
-const ownsActiveVehicle = () => { const r=myReservation(); return !!r && r.uid===window.mastersCurrentUser?.uid; };
+const isMastersAccount = () =>
+  String(window.mastersProfile?.usuario || '').trim().toUpperCase() === 'MASTERS';
+
+const myReservation = () => {
+  const reservation = activeReservations.get(String(S.ativo));
+  const uid = window.mastersCurrentUser?.uid;
+  return reservation && uid && String(reservation.uid) === String(uid)
+    ? reservation
+    : null;
+};
+const ownsActiveVehicle = () => !!myReservation();
 window.mastersCanUseVehicle = ownsActiveVehicle;
 window.mastersIsAdmin = isAdmin;
 window.mastersCanManageRecord = row => isAdmin() || (!!row && !!window.mastersCurrentUser && row.uid === window.mastersCurrentUser.uid);
@@ -1051,8 +1104,8 @@ function installReservationPanel(){
     <b>Controle de utilização do veículo</b>
     <p id="reservation-state" style="font-size:13px;margin:8px 0">Consultando disponibilidade…</p>
     <div class="bar">
-      <button id="reserve-current" type="button">Assumir este veículo</button>
-      <button id="release-current" class="s" type="button">Liberar meu veículo</button>
+      <button id="reserve-current" type="button">Assumir veículo</button>
+      <button id="release-current" class="s" type="button">Liberar veículo</button>
     </div>
 
     <div id="admin-reservations" hidden style="margin-top:12px">
@@ -1206,13 +1259,32 @@ function startReservationWatch(){
   },err=>{const el=document.getElementById('reservation-state');if(el)el.textContent='Não foi possível consultar reservas: '+err.message;});
 }
 function renderReservations(){
-  const state=document.getElementById('reservation-state'); if(!state)return;
-  const r=myReservation();
-  if(r) state.textContent=`Você está utilizando este veículo desde ${r.inicioTexto||'o horário registrado na nuvem'}. Não esqueça de liberá-lo ao terminar.`;
-  else {const other=activeReservations.get(String(S.ativo));state.textContent=other?`Veículo reservado por ${other.usuario||'outro funcionário'}. Escolha outro veículo disponível.`:'Este veículo está disponível para utilização.';}
-  const take=document.getElementById('reserve-current'),release=document.getElementById('release-current');
-  if(take)take.disabled=!!activeReservations.get(String(S.ativo));
-  if(release)release.disabled=!r;
+  const state=document.getElementById('reservation-state');
+  if(!state)return;
+
+  const active=activeReservations.get(String(S.ativo))||null;
+  const mine=myReservation();
+  const take=document.getElementById('reserve-current');
+  const release=document.getElementById('release-current');
+  const adminOnly=isMastersAccount();
+
+  if(adminOnly){
+    state.textContent=active
+      ?`Consulta administrativa: veículo reservado por ${active.usuario||'um funcionário'}.`
+      :'Consulta administrativa: MASTERS não assume veículos.';
+  }else if(mine){
+    state.textContent=`Você está utilizando este veículo desde ${mine.inicioTexto||'o horário registrado na nuvem'}. Não esqueça de liberá-lo ao terminar.`;
+  }else if(active){
+    state.textContent=`Veículo reservado por ${active.usuario||'outro funcionário'}. Escolha outro veículo disponível.`;
+  }else{
+    state.textContent='Este veículo está disponível para utilização.';
+  }
+
+  // Mostra somente a ação compatível com a situação da reserva.
+  // Se outro funcionário estiver usando o veículo, os dois botões ficam ocultos.
+  if(take)take.hidden=adminOnly||!!active;
+  if(release)release.hidden=adminOnly||!mine;
+
   const list=document.getElementById('admin-reservation-list');
   if(list&&isAdmin()){
     list.innerHTML=[...activeReservations.values()].map(x=>`<div style="padding:8px;border-top:1px solid #ddd"><b>${esc(x.veiculo||x.vehicleId)}</b> — ${esc(x.usuario||'Funcionário')} <button class="d" data-force-release="${esc(x.vehicleId)}" style="margin-left:8px;padding:6px 9px">Liberar administrativamente</button></div>`).join('')||'Nenhuma reserva ativa.';
@@ -1220,17 +1292,48 @@ function renderReservations(){
   }
 }
 async function reserveCurrentVehicle(){
-  const id=String(S.ativo||''); if(!id||!V())return;
-  const btn=document.getElementById('reserve-current');btn.disabled=true;
+  const id=String(S.ativo||'');
+  const currentUser=window.mastersCurrentUser;
+  const profile=window.mastersProfile;
+  if(!id||!V())return;
+  if(!currentUser||!profile){
+    alert('Sua sessão ainda não está pronta. Entre novamente e tente de novo.');
+    return;
+  }
+  if(isMastersAccount()){
+    alert('A conta MASTERS é exclusivamente administrativa e não pode assumir veículos.');
+    return;
+  }
+
+  const btn=document.getElementById('reserve-current');
+  if(btn)btn.disabled=true;
   try{
+    const reservation={
+      uid:currentUser.uid,
+      usuario:profile.usuario||'Funcionário',
+      vehicleId:id,
+      veiculo:V().veiculo||'',
+      status:'ativa'
+    };
     await window.mastersRunTransaction(async tx=>{
       const ref=window.mastersDoc('reservas',id),snap=await tx.get(ref);
       if(snap.exists()&&snap.data().status==='ativa')throw new Error('Este veículo já está reservado.');
-      tx.set(ref,{uid:window.mastersCurrentUser.uid,usuario:window.mastersProfile.usuario||'Funcionário',vehicleId:id,veiculo:V().veiculo||'',status:'ativa',inicio:window.mastersServerTimestamp(),criadoEm:window.mastersServerTimestamp(),liberadoEm:null,justificativa:''});
+      tx.set(ref,{
+        ...reservation,
+        inicio:window.mastersServerTimestamp(),
+        criadoEm:window.mastersServerTimestamp(),
+        liberadoEm:null,
+        justificativa:''
+      });
     });
-    document.getElementById('reservation-state').textContent='Veículo reservado para você.';
-  }catch(e){alert(e.message||'Não foi possível reservar o veículo.');}
-  finally{btn.disabled=false;}
+    activeReservations.set(id,reservation);
+    renderReservations();
+  }catch(e){
+    alert(e.message||'Não foi possível reservar o veículo.');
+  }finally{
+    if(btn)btn.disabled=false;
+    renderReservations();
+  }
 }
 async function releaseCurrentVehicle(adminOverride=false,vehicleId=null){
   const id=String(vehicleId||S.ativo||'');const km=prompt('Informe a quilometragem atual do veículo para registrar a liberação:');
@@ -1242,7 +1345,11 @@ async function releaseCurrentVehicle(adminOverride=false,vehicleId=null){
     if(adminOverride&&!isAdmin())throw new Error('Somente MASTERS pode liberar reservas de terceiros.');
     tx.update(ref,{status:'liberada',liberadoEm:window.mastersServerTimestamp(),kmLiberacao:Number(km),liberadoPor:window.mastersCurrentUser.uid,liberadoPorUsuario:window.mastersProfile.usuario||'',liberacaoAdministrativa:!!adminOverride,justificativa:reason});
     tx.set(window.mastersDoc(window.mastersCollection('historico_reservas')),{...data,veiculoId:id,status:'liberada',kmLiberacao:Number(km),liberadoPor:window.mastersCurrentUser.uid,liberadoPorUsuario:window.mastersProfile.usuario||'',liberacaoAdministrativa:!!adminOverride,justificativa:reason,registradoEm:window.mastersServerTimestamp()});
-  });alert('Veículo liberado e histórico registrado.');}catch(e){alert(e.message||'Falha ao liberar veículo.');}
+  });
+  activeReservations.delete(id);
+  renderReservations();
+  alert('Veículo liberado e histórico registrado.');
+  }catch(e){alert(e.message||'Falha ao liberar veículo.');}
 }
 function adminRelease(id){if(!isAdmin()){alert('Acesso restrito ao administrador MASTERS.');return;}releaseCurrentVehicle(true,id);}
 
