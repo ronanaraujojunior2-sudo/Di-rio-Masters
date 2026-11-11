@@ -232,6 +232,28 @@ function draw(){
 
   head();
 }
+
+// Navegação entre páginas do histórico de viagens.
+function currentHistoryVehicleId(){
+  return String(
+    isAdmin() && window.mastersAdminViewVehicleId
+      ? window.mastersAdminViewVehicleId
+      : V().id
+  );
+}
+$('#pg-prev').onclick=()=>{
+  const vid=currentHistoryVehicleId();
+  PG[vid]=Math.max(1,(PG[vid]||1)-1);
+  sel=null;
+  draw();
+};
+$('#pg-next').onclick=()=>{
+  const vid=currentHistoryVehicleId();
+  PG[vid]=(PG[vid]||1)+1;
+  sel=null;
+  draw();
+};
+
 function clr(){F.forEach(([k])=>$('#f_'+k).value='');$('#visto').checked=false;ed=null;$('#lv').hidden=true;$('#ft').textContent='Novo registro';$('#cancel').hidden=true;$('#add').textContent='Salvar registro';$('#err').textContent='';
  const l=RS().at(-1),u=ult();if(u!=null)$('#f_kmS').value=u;else if(V()&&V().kmAtual!=null)$('#f_kmS').value=V().kmAtual;if(l)['mot','usu'].forEach(k=>$('#f_'+k).value=l[k]||'');$('#f_data').value=new Date().toLocaleDateString('sv')}
 $('#ed').onclick=()=>{const r=S.r.find(x=>x.id==sel);if(!r||!window.mastersCanManageRecord?.(r))return;F.forEach(([k])=>$('#f_'+k).value=r[k]??'');$('#visto').checked=!!r.visto;ed=r.id;$('#f_vid').value=r.vid;$('#lv').hidden=false;$('#ft').textContent='Editando registro';$('#cancel').hidden=false;$('#add').textContent='Salvar alterações';$('#err').textContent='';scrollTo(0,0)};
@@ -418,10 +440,28 @@ function calcComprovante(T,A){
     if(!hok(r.hS)||!hok(fh))o.conf.push({r,motivo:'mesmo dia do abastecimento e sem horário para definir a ordem'});
     else if(p5(r.hS)>p5(fh))post.push(r);else if(p5(r.hS)===p5(fh))o.conf.push({r,motivo:'saída no mesmo horário do abastecimento'})});
   let prev=Number.isFinite(f.km)?f.km:null,first=true;
-  post.forEach(r=>{const s=r.kmS,c=r.kmC,m=[],fs=Number.isFinite(s),fc=Number.isFinite(c);let dist=null;
-    if(!fs||!fc)m.push('KM ausente');else if(c<s)m.push('KM de chegada menor que o de saída');else{dist=c-s;o.totalKm+=dist;o.validas++}
-    if(fs&&prev!=null&&s!==prev)m.push(`KM de saída (${s}) difere do ${first?'KM do abastecimento':'KM de chegada anterior'} (${prev})${r.just?' — justificado: '+r.just:''}`);
-    if(fc&&(!fs||c>=s))prev=c;first=false;o.rows.push({r,dist,m})});
+  post.forEach(r=>{
+    const s=Number(r.kmS),c=Number(r.kmC),m=[];
+    const fs=r.kmS!==''&&r.kmS!=null&&Number.isFinite(s);
+    const fc=r.kmC!==''&&r.kmC!=null&&Number.isFinite(c);
+
+    // Viagens com KM de saída divergente não entram no comprovante/exportação.
+    // O histórico original permanece intacto; a referência segue pelo KM final
+    // registrado para que uma divergência não exclua as viagens seguintes.
+    if(fs&&prev!=null&&s!==prev){
+      if(fc&&c>=s)prev=c;
+      first=false;
+      return;
+    }
+
+    let dist=null;
+    if(!fs||!fc)m.push('KM ausente');
+    else if(c<s)m.push('KM de chegada menor que o de saída');
+    else{dist=c-s;o.totalKm+=dist;o.validas++}
+    if(fc&&(!fs||c>=s))prev=c;
+    first=false;
+    o.rows.push({r,dist,m});
+  });
   const L=o.rows.at(-1);if(L)o.ultima={data:L.r.data,km:Number.isFinite(L.r.kmC)?L.r.kmC:null};
   if(o.validas&&Number.isFinite(f.km)&&prev!=null&&prev-f.km!==o.totalKm)o.avisos.push(`Quilometragem pelo hodômetro (${prev-f.km} km, de ${f.km} a ${prev}) difere da soma das viagens (${o.totalKm} km).`);
   return o;
